@@ -26,7 +26,7 @@ func newUninstallCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "uninstall",
-		Short:   "uninstall the Nineinfra",
+		Short:   "Uninstall the NineInfra",
 		Long:    operatorUninstallDesc,
 		Example: operatorUninstallExample,
 		Args:    cobra.MaximumNArgs(0),
@@ -46,6 +46,12 @@ func newUninstallCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 // run deletes the Nineinfra to Kubernetes cluster.
 func (o *operatorUninstallCmd) run(writer io.Writer) error {
 
+	exist, cl := CheckNineClusterExist("", "")
+	if exist {
+		fmt.Printf("Error: NineClusters Exists! Please delete these NineClusters firstly!\n")
+		PrintClusterList(cl)
+		os.Exit(1)
+	}
 	if err := InitHelm(); err != nil {
 		fmt.Printf("Error: %v \n", err)
 		os.Exit(1)
@@ -59,11 +65,6 @@ func (o *operatorUninstallCmd) run(writer io.Writer) error {
 	}
 	flags := strings.Join(parameters, " ")
 
-	if err := CreateIfNotExist(DefaultNamespace, flags); err != nil {
-		fmt.Printf("Error: %v \n", err)
-		os.Exit(1)
-	}
-
 	for _, v := range DefaultChartList {
 		err := HelmUnInstall(v, "", DefaultNamespace, flags)
 		if err != nil {
@@ -73,6 +74,11 @@ func (o *operatorUninstallCmd) run(writer io.Writer) error {
 	}
 
 	if err := RemoveHelmRepo(DefaultHelmRepo); err != nil {
+		fmt.Printf("Error: %v \n", err)
+		os.Exit(1)
+	}
+
+	if err := DeleteIfExist(DefaultNamespace, flags); err != nil {
 		fmt.Printf("Error: %v \n", err)
 		os.Exit(1)
 	}

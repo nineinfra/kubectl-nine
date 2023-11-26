@@ -28,7 +28,7 @@ func newNineStatusCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "status",
-		Short:   "Display nineinfra status",
+		Short:   "Display the NineInfra status",
 		Long:    statusDesc,
 		Example: `  kubectl nine status`,
 		Args:    cobra.MaximumNArgs(0),

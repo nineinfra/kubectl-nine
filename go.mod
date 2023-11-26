@@ -5,6 +5,7 @@ go 1.21.1
 require (
 	github.com/cloudnative-pg/client v0.0.0-00010101000000-000000000000
 	github.com/cloudnative-pg/cloudnative-pg v1.21.1
+	github.com/manifoldco/promptui v0.9.0
 	github.com/nineinfra/nineinfra v0.4.4
 	github.com/spf13/cobra v1.8.0
 	k8s.io/api v0.28.4
@@ -17,6 +18,7 @@ require (
 require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
+	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/emicklei/go-restful/v3 v3.11.0 // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
