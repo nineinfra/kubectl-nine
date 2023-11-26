@@ -44,6 +44,20 @@ func AddHelmRepo(repo string) error {
 	return nil
 }
 
+func RemoveHelmRepo(repo string) error {
+	if repo == "" {
+		repo = DefaultHelmRepo
+	}
+	cmd := exec.Command("helm", "repo", "remove", DefaultHelmRepoName, repo)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err := cmd.Run()
+	if err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+	return nil
+}
+
 func InitHelm() error {
 	if !CheckHelmCmdExist() {
 		err := InstallHelmCmd()
@@ -66,7 +80,21 @@ func HelmInstall(name string, repoName string, chart string, namespace string, f
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err := cmd.Run()
-	if err != nil {
+	if err != nil && !errors.IsAlreadyExists(err) {
+		return err
+	}
+	return nil
+}
+
+func HelmUnInstall(name string, repoName string, namespace string, flags string) error {
+	if repoName == "" {
+		repoName = DefaultHelmRepoName
+	}
+	cmd := exec.Command("helm", "uninstall", name, "-n", namespace, flags)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err := cmd.Run()
+	if err != nil && !errors.IsNotFound(err) {
 		return err
 	}
 	return nil

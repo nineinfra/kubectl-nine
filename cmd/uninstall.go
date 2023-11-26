@@ -2,34 +2,33 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/spf13/cobra"
 	"io"
 	"k8s.io/klog/v2"
 	"os"
 	"strings"
-
-	"github.com/spf13/cobra"
 )
 
 const (
-	operatorInstallDesc = `
- 'install' command creates the Nineinfra platform along with all the dependencies.`
-	operatorInstallExample = `  kubectl nine install`
+	operatorUninstallDesc = `
+ 'uninstall' command deletes the Nineinfra platform along with all the dependencies.`
+	operatorUninstallExample = `  kubectl nine uninstall`
 )
 
-type operatorInstallCmd struct {
+type operatorUninstallCmd struct {
 	out    io.Writer
 	errOut io.Writer
 	output bool
 }
 
-func newInstallCmd(out io.Writer, errOut io.Writer) *cobra.Command {
-	o := &operatorInstallCmd{out: out, errOut: errOut}
+func newUninstallCmd(out io.Writer, errOut io.Writer) *cobra.Command {
+	o := &operatorUninstallCmd{out: out, errOut: errOut}
 
 	cmd := &cobra.Command{
-		Use:     "install",
-		Short:   "Install the Nineinfra",
-		Long:    operatorInstallDesc,
-		Example: operatorInstallExample,
+		Use:     "uninstall",
+		Short:   "uninstall the Nineinfra",
+		Long:    operatorUninstallDesc,
+		Example: operatorUninstallExample,
 		Args:    cobra.MaximumNArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			err := o.run(out)
@@ -44,8 +43,8 @@ func newInstallCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	return cmd
 }
 
-// run initializes local config and installs the Nineinfra to Kubernetes cluster.
-func (o *operatorInstallCmd) run(writer io.Writer) error {
+// run deletes the Nineinfra to Kubernetes cluster.
+func (o *operatorUninstallCmd) run(writer io.Writer) error {
 
 	if err := InitHelm(); err != nil {
 		fmt.Printf("Error: %v \n", err)
@@ -66,12 +65,16 @@ func (o *operatorInstallCmd) run(writer io.Writer) error {
 	}
 
 	for _, v := range DefaultChartList {
-		err := HelmInstall(v, "", v, DefaultNamespace, flags)
+		err := HelmUnInstall(v, "", DefaultNamespace, flags)
 		if err != nil {
 			fmt.Printf("Error: %v \n", err)
 			os.Exit(1)
 		}
 	}
 
+	if err := RemoveHelmRepo(DefaultHelmRepo); err != nil {
+		fmt.Printf("Error: %v \n", err)
+		os.Exit(1)
+	}
 	return nil
 }
