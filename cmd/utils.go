@@ -2,8 +2,9 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"os"
 	"os/exec"
 	"regexp"
@@ -29,7 +30,7 @@ func CreateIfNotExist(resource string, flags string) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err := cmd.Run()
-	if err != nil && !errors.IsAlreadyExists(err) {
+	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return err
 	}
 	return nil
@@ -40,7 +41,7 @@ func DeleteIfExist(resource string, flags string) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err := cmd.Run()
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !k8serrors.IsNotFound(err) {
 		return err
 	}
 	return nil
@@ -48,13 +49,13 @@ func DeleteIfExist(resource string, flags string) error {
 
 func ValidateClusterArgs(cmd string, args []string) error {
 	if args == nil {
-		return fmt.Errorf("provide the name of the cluster, e.g. 'kubectl nine %s tenant1'", cmd)
+		return fmt.Errorf("provide the name of the cluster, e.g. 'kubectl nine %s cluster1 -n c1-ns'", cmd)
 	}
 	if len(args) != 1 {
-		return fmt.Errorf("%s command supports a single argument, e.g. 'kubectl nine %s tenant1'", cmd, cmd)
+		return fmt.Errorf("%s command supports a single argument, e.g. 'kubectl nine %s cluster1 -n c1-ns'", cmd, cmd)
 	}
 	if args[0] == "" {
-		return fmt.Errorf("provide the name of the cluster, e.g. 'kubectl nine %s tenant1'", cmd)
+		return fmt.Errorf("provide the name of the cluster, e.g. 'kubectl nine %s cluster1 -n c1-ns'", cmd)
 	}
 	return CheckValidClusterName(args[0])
 }

@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	createDesc    = `'create' command create a ninecluster by the Nineinfra`
+	createDesc    = `'create' command create a NineCluster by the NineInfra`
 	createExample = ` kubectl nine create c1 --datavolume 16 --namespace c1-ns`
 )
 

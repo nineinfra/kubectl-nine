@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	statusDesc = `'status' command displays the NineInfra status information`
+	statusDesc = `'status' command displays the NineInfra's status information`
 )
 
 type statusCmd struct {
@@ -28,7 +28,7 @@ func newNineStatusCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "status",
-		Short:   "Display the NineInfra status",
+		Short:   "Display the NineInfra's status",
 		Long:    statusDesc,
 		Example: `  kubectl nine status`,
 		Args:    cobra.MaximumNArgs(0),

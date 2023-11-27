@@ -12,7 +12,7 @@ import (
 const (
 	deleteDesc = `
 'delete' command delete the NineCluster along with all the dependencies.`
-	deleteExample = `  kubectl nine delete c1`
+	deleteExample = `  kubectl nine delete c1 --namespace ns-c1`
 )
 
 // ClusterOptions encapsulates the CLI options for a NineCluster
@@ -45,12 +45,12 @@ func newClusterDeleteCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !c.deleteOpts.force {
 				if !Ask(fmt.Sprintf("This will delete the NineCluster %s and ALL its data. Do you want to proceed", args[0])) {
-					return fmt.Errorf(Bold("Aborting NineCluster deletion"))
+					return fmt.Errorf("Aborting NineCluster deletion")
 				}
 			}
 			if !c.deleteOpts.dangerous {
 				if !Ask("Please provide the dangerous flag to confirm deletion") {
-					return fmt.Errorf(Bold("Aborting NineCluster deletion"))
+					return fmt.Errorf("Aborting NineCluster deletion")
 				}
 			}
 

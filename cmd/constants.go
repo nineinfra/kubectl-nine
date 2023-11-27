@@ -24,9 +24,16 @@ var NineInfraDeploymentAlias = map[string]string{
 	"nineinfra-deployment":          "nineinfra",
 }
 
+var NineClusterProjectNameSuffix = map[string]string{
+	"kyuubi":     "-nine-kyuubi",
+	"metastore":  "-nine-metastore",
+	"minio":      "-nine-ss-0",
+	"postgresql": "-nine-pg",
+}
+
 var NineClusterProjectWorkloadList = map[string]string{
-	"-nine-kyuubi":    "statefulset",
-	"-nine-metastore": "statefulset",
-	"-nine-ss-0":      "stattefulset",
-	"-nine-pg":        "cluster",
+	"kyuubi":     "statefulset",
+	"metastore":  "statefulset",
+	"minio":      "statefulset",
+	"postgresql": "cluster",
 }

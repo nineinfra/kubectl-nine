@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	listDesc = `'list' command lists all clusters managed by the Nineinfra`
+	listDesc = `'list' command lists all clusters managed by the NineInfra`
 )
 
 type listCmd struct {
@@ -23,7 +23,7 @@ func newClusterListCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "List all nineclusters",
+		Short: "List all NineClusters",
 		Long:  listDesc,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := c.validate(args); err != nil {

@@ -10,15 +10,20 @@ import (
 )
 
 const (
-	nineDesc   = `Manage the Nineinfra and nineclusters on k8s`
-	kubeconfig = "kubeconfig"
+	nineShortDesc = `Manage the NineInfra and NineClusters on k8s`
+	nineDesc      = `Manage the NineInfra and NineClusters on k8s.
+The NineInfra is a cloudnative data platform.Please reference to https://github.com/nineinfra/nineinfra`
+	kubeconfig  = "kubeconfig"
+	nineVersion = "v0.4.4"
 )
 
 var (
 	confPath string
 	rootCmd  = &cobra.Command{
 		Use:          "nine",
+		Short:        nineShortDesc,
 		Long:         nineDesc,
+		Version:      nineVersion,
 		SilenceUsage: true,
 	}
 )
@@ -38,6 +43,8 @@ func New(_ genericiooptions.IOStreams) *cobra.Command {
 	rootCmd.AddCommand(newClusterCreateCmd(rootCmd.OutOrStdout(), rootCmd.ErrOrStderr()))
 	rootCmd.AddCommand(newClusterDeleteCmd(rootCmd.OutOrStdout(), rootCmd.ErrOrStderr()))
 	rootCmd.AddCommand(newClusterListCmd(rootCmd.OutOrStdout(), rootCmd.ErrOrStderr()))
+	rootCmd.AddCommand(newClusterDescribeCmd(rootCmd.OutOrStdout(), rootCmd.ErrOrStderr()))
+	rootCmd.AddCommand(newClusterShowCmd(rootCmd.OutOrStdout(), rootCmd.ErrOrStderr()))
 	rootCmd.AddCommand(newNineStatusCmd(rootCmd.OutOrStdout(), rootCmd.ErrOrStderr()))
 	return rootCmd
 }

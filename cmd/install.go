@@ -12,7 +12,7 @@ import (
 
 const (
 	operatorInstallDesc = `
- 'install' command creates the Nineinfra platform along with all the dependencies.`
+ 'install' command creates the NineInfra platform along with all the dependencies.`
 	operatorInstallExample = `  kubectl nine install`
 )
 
@@ -27,7 +27,7 @@ func newInstallCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "install",
-		Short:   "Install the Nineinfra",
+		Short:   "Install the NineInfra",
 		Long:    operatorInstallDesc,
 		Example: operatorInstallExample,
 		Args:    cobra.MaximumNArgs(0),

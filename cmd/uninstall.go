@@ -11,7 +11,7 @@ import (
 
 const (
 	operatorUninstallDesc = `
- 'uninstall' command deletes the Nineinfra platform along with all the dependencies.`
+ 'uninstall' command deletes the NineInfra platform along with all the dependencies.`
 	operatorUninstallExample = `  kubectl nine uninstall`
 )
 
