@@ -73,5 +73,10 @@ func (o *operatorInstallCmd) run(writer io.Writer) error {
 		}
 	}
 
+	fmt.Println("NineInfra is installed successfully!")
+	fmt.Println("It may take a few minutes for it to be ready")
+	fmt.Println("You can check its status using the following command")
+	fmt.Println("kubectl nine status")
+
 	return nil
 }

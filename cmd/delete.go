@@ -15,13 +15,11 @@ const (
 	deleteExample = `  kubectl nine delete c1 --namespace ns-c1`
 )
 
-// ClusterOptions encapsulates the CLI options for a NineCluster
 type DeleteOptions struct {
 	Name      string
 	NS        string
-	force     bool
 	dangerous bool
-	retainPVC bool
+	deletePVC bool
 }
 
 type deleteCmd struct {
@@ -35,7 +33,7 @@ func newClusterDeleteCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	c := &deleteCmd{out: out, errOut: errOut}
 
 	cmd := &cobra.Command{
-		Use:     "delete <NINECLUSTERNAME> --namespace <NINECLUSTERNS>",
+		Use:     "delete <NINECLUSTERNAME>",
 		Short:   "Delete a NineCluster",
 		Long:    deleteDesc,
 		Example: deleteExample,
@@ -43,15 +41,9 @@ func newClusterDeleteCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 			return c.validate(args)
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if !c.deleteOpts.force {
-				if !Ask(fmt.Sprintf("This will delete the NineCluster %s and ALL its data. Do you want to proceed", args[0])) {
-					return fmt.Errorf("Aborting NineCluster deletion")
-				}
-			}
 			if !c.deleteOpts.dangerous {
-				if !Ask("Please provide the dangerous flag to confirm deletion") {
-					return fmt.Errorf("Aborting NineCluster deletion")
-				}
+				fmt.Println("Please provide the i-know-it-is-dangerous flag to confirm deletion!")
+				return fmt.Errorf("Aborting NineCluster deletion")
 			}
 
 			err := c.run(args)
@@ -65,9 +57,8 @@ func newClusterDeleteCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	cmd = DisableHelp(cmd)
 	f := cmd.Flags()
 	f.StringVarP(&c.deleteOpts.NS, "namespace", "n", "", "namespace scope for this request")
-	f.BoolVarP(&c.deleteOpts.force, "force", "f", false, "allow without confirmation")
-	f.BoolVarP(&c.deleteOpts.dangerous, "dangerous", "d", false, "confirm deletion")
-	f.BoolVarP(&c.deleteOpts.retainPVC, "retain-pvc", "r", true, "retain ninecluster pvcs")
+	f.BoolVar(&c.deleteOpts.dangerous, "i-know-it-is-dangerous", false, "confirm deletion")
+	f.BoolVar(&c.deleteOpts.deletePVC, "delete-pvc", false, "delete the ninecluster's pvcs")
 	cmd.MarkFlagRequired("namespace")
 
 	return cmd
@@ -111,11 +102,18 @@ func (d *deleteCmd) run(args []string) error {
 		return err
 	}
 
-	if !d.deleteOpts.retainPVC {
-		err := deleteNineInfraPVC(d.deleteOpts.Name, d.deleteOpts.NS)
-		if err != nil {
-			return err
+	if d.deleteOpts.deletePVC {
+		if Ask("This is irreversible, are you sure you want to delete all pvcs of this NineCluster") {
+			fmt.Println("All PVCs used by Nine will be deleted")
+			err := deleteNineInfraPVC(d.deleteOpts.Name+DefaultNineSuffix, d.deleteOpts.NS)
+			if err != nil {
+				return err
+			}
+		} else {
+			fmt.Println("All PVCs used by Nine will not be deleted")
 		}
 	}
+	fmt.Println("NineCluster:" + d.deleteOpts.Name + " in namespace:" + d.deleteOpts.NS + " is deleted successfully!")
+	fmt.Println("It may take a few minutes for it to be deleted completely")
 	return nil
 }

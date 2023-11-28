@@ -82,5 +82,8 @@ func (o *operatorUninstallCmd) run(writer io.Writer) error {
 		fmt.Printf("Error: %v \n", err)
 		os.Exit(1)
 	}
+	fmt.Println("NineInfra is uninstalled successfully!")
+	fmt.Println("It may take a few minutes for it to be uninstalled completely")
+
 	return nil
 }

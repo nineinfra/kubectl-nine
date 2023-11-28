@@ -3,6 +3,7 @@ package cmd
 const (
 	DefaultNamespace   = "nineinfra"
 	DefaultPVCLabelKey = "v1.min.io/tenant"
+	DefaultNineSuffix  = "-nine"
 )
 
 var DefaultChartList = []string{

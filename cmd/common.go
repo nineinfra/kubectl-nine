@@ -6,6 +6,7 @@ import (
 	cnpgv1 "github.com/cloudnative-pg/cloudnative-pg/api/v1"
 	"github.com/manifoldco/promptui"
 	nineinfrav1alpha1 "github.com/nineinfra/nineinfra/api/v1alpha1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/duration"
 	"time"
@@ -34,7 +35,7 @@ func CheckNineClusterExist(name string, namespace string) (bool, *nineinfrav1alp
 		}
 	} else {
 		clist, err := nc.NineinfraV1alpha1().NineClusters(namespace).List(context.TODO(), metav1.ListOptions{})
-		if err == nil {
+		if err == nil && len(clist.Items) != 0 {
 			return true, clist
 		}
 	}
@@ -81,7 +82,11 @@ func PrintStsReadyAndAge(name string, namespace string) (string, string) {
 	}
 	sts, err := client.AppsV1().StatefulSets(namespace).Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
-		return "", ""
+		if errors.IsNotFound(err) {
+			return "0/0", "0s"
+		} else {
+			return "", ""
+		}
 	}
 
 	return fmt.Sprintf("%d/%d", sts.Status.ReadyReplicas, *sts.Spec.Replicas), fmt.Sprintf("%s", HumanDuration(sts.CreationTimestamp.Time))
@@ -112,7 +117,11 @@ func PrintPGClusterReadyAndAge(name string, namespace string) (string, string) {
 	}
 	pg, err := client.PostgresqlV1().Clusters(namespace).Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
-		return "", ""
+		if errors.IsNotFound(err) {
+			return "0/0", "0s"
+		} else {
+			return "", ""
+		}
 	}
 
 	return fmt.Sprintf("%d/%d", pg.Status.ReadyInstances, pg.Spec.Instances), fmt.Sprintf("%s", HumanDuration(pg.CreationTimestamp.Time))
