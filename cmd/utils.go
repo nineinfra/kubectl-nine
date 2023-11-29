@@ -4,9 +4,6 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"os"
-	"os/exec"
 	"regexp"
 	"strings"
 )
@@ -25,25 +22,29 @@ func DisableHelp(cmd *cobra.Command) *cobra.Command {
 	return cmd
 }
 
-func CreateIfNotExist(resource string, flags string) error {
-	cmd := exec.Command("kubectl", "create", resource, flags)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err := cmd.Run()
-	if err != nil && !k8serrors.IsAlreadyExists(err) {
-		return err
+func CreateIfNotExist(resource string, resourceType string, flags string) error {
+	if flags == "" {
+		_, errput, err := runCommand("kubectl", "create", resourceType, resource)
+		if err != nil && !strings.Contains(errput, "exists") {
+			return err
+		}
+	} else {
+		_, errput, err := runCommand("kubectl", "create", resourceType, resource, flags)
+		if err != nil && !strings.Contains(errput, "exists") {
+			return err
+		}
 	}
+
+	fmt.Printf("Create %s %s successfully!\n", resourceType, resource)
 	return nil
 }
 
-func DeleteIfExist(resource string, flags string) error {
-	cmd := exec.Command("kubectl", "delete", resource, flags)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err := cmd.Run()
-	if err != nil && !k8serrors.IsNotFound(err) {
+func DeleteIfExist(resource string, resourceType string, flags string) error {
+	_, errput, err := runCommand("kubectl", "delete", resourceType, resource, flags)
+	if err != nil && !strings.Contains(errput, "not found") {
 		return err
 	}
+	fmt.Printf("Delete %s %s successfully!\n", resourceType, resource)
 	return nil
 }
 

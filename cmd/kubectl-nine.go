@@ -45,6 +45,7 @@ func New(_ genericiooptions.IOStreams) *cobra.Command {
 	rootCmd.AddCommand(newClusterListCmd(rootCmd.OutOrStdout(), rootCmd.ErrOrStderr()))
 	rootCmd.AddCommand(newClusterDescribeCmd(rootCmd.OutOrStdout(), rootCmd.ErrOrStderr()))
 	rootCmd.AddCommand(newClusterShowCmd(rootCmd.OutOrStdout(), rootCmd.ErrOrStderr()))
+	rootCmd.AddCommand(newClusterSqlCmd(rootCmd.OutOrStdout(), rootCmd.ErrOrStderr()))
 	rootCmd.AddCommand(newNineStatusCmd(rootCmd.OutOrStdout(), rootCmd.ErrOrStderr()))
 	return rootCmd
 }

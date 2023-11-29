@@ -6,6 +6,8 @@ const (
 	DefaultNineSuffix  = "-nine"
 )
 
+var DEBUG = false
+
 var DefaultChartList = []string{
 	"cloudnative-pg",
 	"kyuubi-operator",

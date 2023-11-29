@@ -1,9 +1,9 @@
 package cmd
 
 import (
-	"k8s.io/apimachinery/pkg/api/errors"
-	"os"
+	"fmt"
 	"os/exec"
+	"strings"
 )
 
 const (
@@ -20,10 +20,7 @@ func CheckHelmCmdExist() bool {
 }
 
 func InstallHelmCmd() error {
-	cmd := exec.Command("curl", "-fsSL", "https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err := cmd.Run()
+	_, _, err := runCommand("curl", "-fsSL", "https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash")
 	if err != nil {
 		return err
 	}
@@ -34,13 +31,11 @@ func AddHelmRepo(repo string) error {
 	if repo == "" {
 		repo = DefaultHelmRepo
 	}
-	cmd := exec.Command("helm", "repo", "add", DefaultHelmRepoName, repo)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err := cmd.Run()
-	if err != nil && !errors.IsAlreadyExists(err) {
+	_, errput, err := runCommand("helm", "repo", "add", DefaultHelmRepoName, repo)
+	if err != nil && !strings.Contains(errput, "already exists") {
 		return err
 	}
+	fmt.Printf("Add repo %s successfully\n", repo)
 	return nil
 }
 
@@ -48,13 +43,11 @@ func RemoveHelmRepo(repo string) error {
 	if repo == "" {
 		repo = DefaultHelmRepo
 	}
-	cmd := exec.Command("helm", "repo", "remove", DefaultHelmRepoName, repo)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err := cmd.Run()
-	if err != nil && !errors.IsNotFound(err) {
+	_, errput, err := runCommand("helm", "repo", "remove", DefaultHelmRepoName, repo)
+	if err != nil && !strings.Contains(errput, "not found") {
 		return err
 	}
+	fmt.Printf("Remove repo %s successfully\n", repo)
 	return nil
 }
 
@@ -76,13 +69,18 @@ func HelmInstall(name string, repoName string, chart string, namespace string, f
 		repoName = DefaultHelmRepoName
 	}
 	chart = repoName + "/" + chart
-	cmd := exec.Command("helm", "install", name, chart, "-n", namespace, flags)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err := cmd.Run()
-	if err != nil && !errors.IsAlreadyExists(err) {
-		return err
+	if flags == "" {
+		_, errput, err := runCommand("helm", "install", name, chart, "-n", namespace)
+		if err != nil && !strings.Contains(errput, "in use") {
+			return err
+		}
+	} else {
+		_, errput, err := runCommand("helm", "install", name, chart, "-n", namespace, flags)
+		if err != nil && !strings.Contains(errput, "in use") {
+			return err
+		}
 	}
+	fmt.Printf("Install %s successfully!\n", name)
 	return nil
 }
 
@@ -90,12 +88,10 @@ func HelmUnInstall(name string, repoName string, namespace string, flags string)
 	if repoName == "" {
 		repoName = DefaultHelmRepoName
 	}
-	cmd := exec.Command("helm", "uninstall", name, "-n", namespace, flags)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err := cmd.Run()
-	if err != nil && !errors.IsNotFound(err) {
+	_, errput, err := runCommand("helm", "uninstall", name, "-n", namespace, flags)
+	if err != nil && !strings.Contains(errput, "not found") {
 		return err
 	}
+	fmt.Printf("Uninstall %s successfully!\n", name)
 	return nil
 }

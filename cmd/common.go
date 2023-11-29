@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	cnpgv1 "github.com/cloudnative-pg/cloudnative-pg/api/v1"
@@ -9,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/duration"
+	"os/exec"
 	"time"
 )
 
@@ -16,6 +18,23 @@ const (
 	PrintFmtStrClusterList        = "%-20s\t%-10s\t%-10s\t%-10s\t%-10s\n"
 	PrintFmtStrClusterProjectList = "%-40s\t%-10s\t%-10s\t%-10s\t%-10s\n"
 )
+
+func runCommand(command string, args ...string) (string, string, error) {
+	cmd := exec.Command(command, args...)
+
+	var output, errput bytes.Buffer
+	cmd.Stdout = &output
+	cmd.Stderr = &errput
+	err := cmd.Run()
+	if output.Len() != 0 {
+		//avoid return twice
+		err = nil
+	}
+	if DEBUG {
+		fmt.Printf("Exec %s args:%v with output:%s,errput:%s,err:%v\n", command, args, output.String(), errput.String(), err)
+	}
+	return output.String(), errput.String(), err
+}
 
 func CheckNineClusterExist(name string, namespace string) (bool, *nineinfrav1alpha1.NineClusterList) {
 	path, _ := rootCmd.Flags().GetString(kubeconfig)

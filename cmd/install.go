@@ -41,6 +41,8 @@ func newInstallCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 		},
 	}
 	cmd = DisableHelp(cmd)
+	f := cmd.Flags()
+	f.BoolVar(&DEBUG, "debug", false, "print debug infomation")
 	return cmd
 }
 
@@ -60,7 +62,7 @@ func (o *operatorInstallCmd) run(writer io.Writer) error {
 	}
 	flags := strings.Join(parameters, " ")
 
-	if err := CreateIfNotExist(DefaultNamespace, flags); err != nil {
+	if err := CreateIfNotExist(DefaultNamespace, "namespace", flags); err != nil {
 		fmt.Printf("Error: %v \n", err)
 		os.Exit(1)
 	}

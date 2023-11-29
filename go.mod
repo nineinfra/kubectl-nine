@@ -3,10 +3,12 @@ module github.com/nineinfra/kubectl-nine
 go 1.21.1
 
 require (
+	github.com/beltran/gohive v1.6.0
 	github.com/cloudnative-pg/client v0.0.0-00010101000000-000000000000
 	github.com/cloudnative-pg/cloudnative-pg v1.21.1
 	github.com/manifoldco/promptui v0.9.0
 	github.com/nineinfra/nineinfra v0.4.4
+	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.8.0
 	k8s.io/api v0.28.4
 	k8s.io/apimachinery v0.28.4
@@ -16,6 +18,9 @@ require (
 )
 
 require (
+	github.com/apache/thrift v0.18.1 // indirect
+	github.com/beltran/gosasl v0.0.0-20200715011608-d5475aebb293 // indirect
+	github.com/beltran/gssapi v0.0.0-20200324152954-d86554db4bab // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e // indirect
@@ -28,6 +33,7 @@ require (
 	github.com/go-openapi/jsonpointer v0.19.6 // indirect
 	github.com/go-openapi/jsonreference v0.20.2 // indirect
 	github.com/go-openapi/swag v0.22.3 // indirect
+	github.com/go-zookeeper/zk v1.0.1 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
@@ -47,7 +53,6 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.17.0 // indirect
 	github.com/prometheus/client_model v0.4.1-0.20230718164431-9a2bf3000d16 // indirect
 	github.com/prometheus/common v0.44.0 // indirect

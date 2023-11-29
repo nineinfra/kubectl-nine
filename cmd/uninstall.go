@@ -40,12 +40,13 @@ func newUninstallCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 		},
 	}
 	cmd = DisableHelp(cmd)
+	f := cmd.Flags()
+	f.BoolVar(&DEBUG, "debug", false, "print debug infomation")
 	return cmd
 }
 
 // run deletes the Nineinfra to Kubernetes cluster.
 func (o *operatorUninstallCmd) run(writer io.Writer) error {
-
 	exist, cl := CheckNineClusterExist("", "")
 	if exist {
 		fmt.Printf("Error: NineClusters Exists! Please delete these NineClusters firstly!\n")
@@ -64,7 +65,6 @@ func (o *operatorUninstallCmd) run(writer io.Writer) error {
 		parameters = append([]string{"--kubeconfig", path}, parameters...)
 	}
 	flags := strings.Join(parameters, " ")
-
 	for _, v := range DefaultChartList {
 		err := HelmUnInstall(v, "", DefaultNamespace, flags)
 		if err != nil {
@@ -78,10 +78,10 @@ func (o *operatorUninstallCmd) run(writer io.Writer) error {
 		os.Exit(1)
 	}
 
-	if err := DeleteIfExist(DefaultNamespace, flags); err != nil {
-		fmt.Printf("Error: %v \n", err)
-		os.Exit(1)
-	}
+	//if err := DeleteIfExist(DefaultNamespace, "namespace", flags); err != nil {
+	//	fmt.Printf("Error: %v \n", err)
+	//	os.Exit(1)
+	//}
 	fmt.Println("NineInfra is uninstalled successfully!")
 	fmt.Println("It may take a few minutes for it to be uninstalled completely")
 
