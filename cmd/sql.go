@@ -106,28 +106,31 @@ func (s *sqlCmd) run(_ []string) error {
 	if cursor.Err != nil {
 		return cursor.Err
 	}
-	table := tablewriter.NewWriter(os.Stdout)
-	row1 := cursor.RowMap(context.TODO())
-	var header []string
-	var data1 []string
-	for k, v := range row1 {
-		header = append(header, k)
-		data1 = append(data1, fmt.Sprintf("%v", v))
-	}
-	table.SetHeader(header)
-	table.Append(data1)
 
-	for cursor.HasMore(context.TODO()) {
-		row := cursor.RowMap(context.TODO())
-		var data []string
-		for _, v := range header {
-			data = append(data, fmt.Sprintf("%v", row[v]))
+	row1 := cursor.RowMap(context.TODO())
+	if row1 != nil {
+		var header []string
+		var data1 []string
+		for k, v := range row1 {
+			header = append(header, k)
+			data1 = append(data1, fmt.Sprintf("%v", v))
 		}
-		table.Append(data)
+		table := tablewriter.NewWriter(os.Stdout)
+		table.SetHeader(header)
+		table.Append(data1)
+
+		for cursor.HasMore(context.TODO()) {
+			row := cursor.RowMap(context.TODO())
+			var data []string
+			for _, v := range header {
+				data = append(data, fmt.Sprintf("%v", row[v]))
+			}
+			table.Append(data)
+		}
+		table.SetBorder(true)
+		table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
+		table.SetAlignment(tablewriter.ALIGN_LEFT)
+		table.Render()
 	}
-	table.SetBorder(true)
-	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
-	table.SetAlignment(tablewriter.ALIGN_LEFT)
-	table.Render()
 	return nil
 }
