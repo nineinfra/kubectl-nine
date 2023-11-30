@@ -1,9 +1,10 @@
 package cmd
 
 const (
-	DefaultNamespace   = "nineinfra"
-	DefaultPVCLabelKey = "v1.min.io/tenant"
-	DefaultNineSuffix  = "-nine"
+	DefaultNamespace      = "nineinfra"
+	DefaultPVCLabelKey    = "v1.min.io/tenant"
+	DefaultNineSuffix     = "-nine"
+	DefaultThriftPortName = "thrift-binary"
 )
 
 var DEBUG = false

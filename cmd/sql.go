@@ -2,10 +2,15 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"github.com/beltran/gohive"
+	"github.com/olekukonko/tablewriter"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"io"
-	"log"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"os"
 )
 
 const (
@@ -14,8 +19,9 @@ const (
 )
 
 type SqlOptions struct {
-	Name string
-	NS   string
+	Name      string
+	NS        string
+	Statement string
 }
 
 type sqlCmd struct {
@@ -47,6 +53,7 @@ func newClusterSqlCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	cmd = DisableHelp(cmd)
 	f := cmd.Flags()
 	f.StringVarP(&c.sqlOpts.NS, "namespace", "n", "", "k8s namespace for this ninecluster")
+	f.StringVarP(&c.sqlOpts.Statement, "statement", "s", "show databases", "simple sql statement")
 	return cmd
 }
 
@@ -55,28 +62,72 @@ func (s *sqlCmd) validate(args []string) error {
 	return ValidateClusterArgs("sql", args)
 }
 
+func (s *sqlCmd) getThriftIpAndPort() (string, int32) {
+	svcName := s.sqlOpts.Name + DefaultNineSuffix + "-kyuubi"
+	path, _ := rootCmd.Flags().GetString(kubeconfig)
+	client, err := GetKubeClient(path)
+	if err != nil {
+		return "", 0
+	}
+	svc, err := client.CoreV1().Services(s.sqlOpts.NS).Get(context.TODO(), svcName, metav1.GetOptions{})
+	if err != nil {
+		return "", 0
+	}
+	var thriftIP string
+	var thriftPort int32
+	switch svc.Spec.Type {
+	case corev1.ServiceTypeClusterIP:
+		thriftIP = svc.Spec.ClusterIP
+		for _, v := range svc.Spec.Ports {
+			if v.Name == DefaultThriftPortName {
+				thriftPort = v.Port
+			}
+		}
+	}
+	return thriftIP, thriftPort
+}
+
 func (s *sqlCmd) run(_ []string) error {
-	//svcName := s.sqlOpts.Name + DefaultNineSuffix + "-kyuubi"
-	svcName := "10.110.221.87"
+	thriftIP, thriftPort := s.getThriftIpAndPort()
+	if thriftIP == "" || thriftPort == 0 {
+		return errors.New("Invalid Thrift Access Info!")
+	}
 	conf := gohive.NewConnectConfiguration()
-	conn, err := gohive.Connect(svcName, 10009, "NONE", conf)
+	conn, err := gohive.Connect(thriftIP, int(thriftPort), "NONE", conf)
 	if err != nil {
 		return err
 	}
+	defer conn.Close()
+
 	cursor := conn.Cursor()
-	cursor.Exec(context.TODO(), "show databases")
+	defer cursor.Close()
+
+	cursor.Exec(context.TODO(), s.sqlOpts.Statement)
 	if cursor.Err != nil {
 		return cursor.Err
 	}
-	var str string
-	for cursor.HasMore(context.TODO()) {
-		cursor.FetchOne(context.TODO(), &str)
-		if cursor.Err != nil {
-			log.Fatal(cursor.Err)
-		}
-		log.Println(str)
+	table := tablewriter.NewWriter(os.Stdout)
+	row1 := cursor.RowMap(context.TODO())
+	var header []string
+	var data1 []string
+	for k, v := range row1 {
+		header = append(header, k)
+		data1 = append(data1, fmt.Sprintf("%v", v))
 	}
-	cursor.Close()
-	conn.Close()
+	table.SetHeader(header)
+	table.Append(data1)
+
+	for cursor.HasMore(context.TODO()) {
+		row := cursor.RowMap(context.TODO())
+		var data []string
+		for _, v := range header {
+			data = append(data, fmt.Sprintf("%v", row[v]))
+		}
+		table.Append(data)
+	}
+	table.SetBorder(true)
+	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
+	table.SetAlignment(tablewriter.ALIGN_LEFT)
+	table.Render()
 	return nil
 }

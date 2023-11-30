@@ -8,6 +8,7 @@ require (
 	github.com/cloudnative-pg/cloudnative-pg v1.21.1
 	github.com/manifoldco/promptui v0.9.0
 	github.com/nineinfra/nineinfra v0.4.4
+	github.com/olekukonko/tablewriter v0.0.5
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.8.0
 	k8s.io/api v0.28.4
@@ -48,6 +49,7 @@ require (
 	github.com/kubernetes-csi/external-snapshotter/client/v6 v6.3.0 // indirect
 	github.com/lib/pq v1.10.9 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
+	github.com/mattn/go-runewidth v0.0.9 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
 	github.com/moby/spdystream v0.2.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
