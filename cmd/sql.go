@@ -10,12 +10,26 @@ import (
 	"io"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/clientcmd"
 	"os"
 )
 
 const (
 	sqlDesc    = `'sql' command execute sql commond on the NineCluster`
-	sqlExample = ` kubectl nine sql c1 --namespace c1-ns`
+	sqlExample = `1. Create database
+   $ kubectl nine sql c1 --namespace c1-ns "create database test"
+
+2. Create table
+   $ kubectl nine sql c1 --namespace c1-ns "create table test.test(id int,name string)"
+
+3. Insert to table
+   $ kubectl nine sql c1 --namespace c1-ns "insert into table test.test values(1,\"nineinfa\")"
+
+4. Select table
+   $ kubectl nine sql c1 --namespace c1-ns "select * from test.test"
+
+5. Show tables
+   $ kubectl nine sql c1 --namespace c1-ns "show tables from test"`
 )
 
 type SqlOptions struct {
@@ -81,6 +95,17 @@ func (s *sqlCmd) getThriftIpAndPort() (string, int32) {
 		for _, v := range svc.Spec.Ports {
 			if v.Name == DefaultThriftPortName {
 				thriftPort = v.Port
+			}
+		}
+	case corev1.ServiceTypeNodePort:
+		config, err := clientcmd.BuildConfigFromFlags("", path)
+		if err != nil {
+			return "", 0
+		}
+		thriftIP = config.Host
+		for _, v := range svc.Spec.Ports {
+			if v.Name == DefaultThriftPortName {
+				thriftPort = v.NodePort
 			}
 		}
 	}

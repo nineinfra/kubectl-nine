@@ -62,7 +62,7 @@ func (o *operatorUninstallCmd) run(writer io.Writer) error {
 
 	parameters := []string{}
 	if path != "" {
-		parameters = append([]string{"--kubeconfig", path}, parameters...)
+		parameters = append(parameters, []string{"--kubeconfig", path}...)
 	}
 	flags := strings.Join(parameters, " ")
 	for _, v := range DefaultChartList {

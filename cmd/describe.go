@@ -58,7 +58,7 @@ func (d *describeCmd) run(_ []string) error {
 
 	parameters := []string{"describe", "ninecluster", d.name, "-n", d.ns}
 	if path != "" {
-		parameters = append([]string{"--kubeconfig", path}, parameters...)
+		parameters = append(parameters, []string{"--kubeconfig", path}...)
 	}
 
 	cmd := exec.Command("kubectl", parameters...)
