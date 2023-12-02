@@ -12,7 +12,8 @@ import (
 const (
 	nineShortDesc = `Manage the NineInfra and NineClusters on k8s`
 	nineDesc      = `Manage the NineInfra and NineClusters on k8s.
-The NineInfra is a cloudnative data platform.Please reference to https://github.com/nineinfra/nineinfra`
+The NineInfra is a cloudnative data platform.
+You can reference to https://github.com/nineinfra/nineinfra`
 	kubeconfig  = "kubeconfig"
 	nineVersion = "v0.4.4"
 )
