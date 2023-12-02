@@ -38,6 +38,7 @@ func init() {
 func New(_ genericiooptions.IOStreams) *cobra.Command {
 	rootCmd = DisableHelp(rootCmd)
 	cobra.EnableCommandSorting = false
+	rootCmd.AddCommand(newPrepareCmd(rootCmd.OutOrStdout(), rootCmd.ErrOrStderr()))
 	rootCmd.AddCommand(newInstallCmd(rootCmd.OutOrStdout(), rootCmd.ErrOrStderr()))
 	rootCmd.AddCommand(newUninstallCmd(rootCmd.OutOrStdout(), rootCmd.ErrOrStderr()))
 	rootCmd.AddCommand(newClusterCreateCmd(rootCmd.OutOrStdout(), rootCmd.ErrOrStderr()))

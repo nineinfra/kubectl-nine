@@ -49,11 +49,6 @@ func newInstallCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 // run initializes local config and installs the Nineinfra to Kubernetes cluster.
 func (o *operatorInstallCmd) run(writer io.Writer) error {
 
-	if err := InitHelm(); err != nil {
-		fmt.Printf("Error: %v \n", err)
-		os.Exit(1)
-	}
-
 	path, _ := rootCmd.Flags().GetString(kubeconfig)
 
 	parameters := []string{}

@@ -53,10 +53,6 @@ func (o *operatorUninstallCmd) run(writer io.Writer) error {
 		PrintClusterList(cl)
 		os.Exit(1)
 	}
-	if err := InitHelm(); err != nil {
-		fmt.Printf("Error: %v \n", err)
-		os.Exit(1)
-	}
 
 	path, _ := rootCmd.Flags().GetString(kubeconfig)
 

@@ -5,6 +5,8 @@ const (
 	DefaultPVCLabelKey    = "v1.min.io/tenant"
 	DefaultNineSuffix     = "-nine"
 	DefaultThriftPortName = "thrift-binary"
+	CMDHelm               = "helm"
+	CMDDirectPV           = "kubectl-directpv"
 )
 
 var DEBUG = false

@@ -9,10 +9,11 @@ import (
 const (
 	DefaultHelmRepoName = "nineinfra"
 	DefaultHelmRepo     = "https://nineinfra.github.io/nineinfra-charts/"
+	CMDHelmURL          = "https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3"
 )
 
 func CheckHelmCmdExist() bool {
-	_, err := exec.LookPath("helm")
+	_, err := exec.LookPath(CMDHelm)
 	if err != nil {
 		return false
 	}
@@ -20,7 +21,11 @@ func CheckHelmCmdExist() bool {
 }
 
 func InstallHelmCmd() error {
-	_, _, err := runCommand("curl", "-fsSL", "https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash")
+	_, _, err := runCommand("curl", "-OfsSL", CMDHelmURL)
+	if err != nil {
+		return err
+	}
+	_, _, err = runCommand("bash", "./get-helm-3")
 	if err != nil {
 		return err
 	}

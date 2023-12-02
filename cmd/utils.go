@@ -50,13 +50,13 @@ func DeleteIfExist(resource string, resourceType string, flags string) error {
 
 func ValidateClusterArgs(cmd string, args []string) error {
 	if args == nil {
-		return fmt.Errorf("provide the name of the cluster, e.g. 'kubectl nine %s cluster1 -n c1-ns'", cmd)
+		return fmt.Errorf("provide the name of the cluster, e.g. 'kubectl nine %s cluster1 -n c1-ns flags'", cmd)
 	}
 	if len(args) != 1 {
-		return fmt.Errorf("%s command supports a single argument, e.g. 'kubectl nine %s cluster1 -n c1-ns'", cmd, cmd)
+		return fmt.Errorf("%s command supports a single argument, e.g. 'kubectl nine %s cluster1 -n c1-ns flags'", cmd, cmd)
 	}
 	if args[0] == "" {
-		return fmt.Errorf("provide the name of the cluster, e.g. 'kubectl nine %s cluster1 -n c1-ns'", cmd)
+		return fmt.Errorf("provide the name of the cluster, e.g. 'kubectl nine %s cluster1 -n c1-ns flags'", cmd)
 	}
 	return CheckValidClusterName(args[0])
 }
