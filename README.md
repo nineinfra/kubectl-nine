@@ -6,7 +6,7 @@
 
 1. Install Nine plugin in your k8s cluster
 ```sh
-$ cur -o /usr/local/bin/kubectl-nine -fsSL https://github.com/nineinfra/kubectl-nine/releases/download/v0.4.4/kubectl-nine_0.4.4_linux_amd64
+$ curl -o /usr/local/bin/kubectl-nine -fsSL https://github.com/nineinfra/kubectl-nine/releases/download/v0.4.4/kubectl-nine_0.4.4_linux_amd64
 $ chmod 0755 /usr/local/bin/kubectl-nine
 ```
 
