@@ -69,18 +69,18 @@ func InitHelm() error {
 	return nil
 }
 
-func HelmInstall(name string, repoName string, chart string, namespace string, flags string) error {
+func HelmInstall(name string, repoName string, chart string, version string, namespace string, flags string) error {
 	if repoName == "" {
 		repoName = DefaultHelmRepoName
 	}
 	chart = repoName + "/" + chart
 	if flags == "" {
-		_, errput, err := runCommand("helm", "install", name, chart, "-n", namespace)
+		_, errput, err := runCommand("helm", "install", name, chart, "--version", version, "-n", namespace)
 		if err != nil && !strings.Contains(errput, "in use") {
 			return err
 		}
 	} else {
-		_, errput, err := runCommand("helm", "install", name, chart, "-n", namespace, flags)
+		_, errput, err := runCommand("helm", "install", name, chart, "--version", version, "-n", namespace, flags)
 		if err != nil && !strings.Contains(errput, "in use") {
 			return err
 		}

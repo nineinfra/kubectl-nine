@@ -61,8 +61,8 @@ func (o *operatorUninstallCmd) run(writer io.Writer) error {
 		parameters = append(parameters, []string{"--kubeconfig", path}...)
 	}
 	flags := strings.Join(parameters, " ")
-	for _, v := range DefaultChartList {
-		err := HelmUnInstall(v, "", DefaultNamespace, flags)
+	for c, _ := range DefaultChartList {
+		err := HelmUnInstall(c, "", DefaultNamespace, flags)
 		if err != nil {
 			fmt.Printf("Error: %v \n", err)
 			os.Exit(1)

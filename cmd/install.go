@@ -62,8 +62,8 @@ func (o *operatorInstallCmd) run(writer io.Writer) error {
 		os.Exit(1)
 	}
 
-	for _, v := range DefaultChartList {
-		err := HelmInstall(v, "", v, DefaultNamespace, flags)
+	for c, v := range DefaultChartList {
+		err := HelmInstall(c, "", c, v, DefaultNamespace, flags)
 		if err != nil {
 			fmt.Printf("Error: %v \n", err)
 			os.Exit(1)
