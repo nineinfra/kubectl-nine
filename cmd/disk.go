@@ -108,7 +108,7 @@ func newDiskCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "disk <SUBCOMMAND>",
-		Short:   "Manager the physical disks on the k8s for the minio",
+		Short:   "Manage the physical disks on the k8s for the minio",
 		Long:    diskDesc,
 		Example: diskExample,
 		Args: func(cmd *cobra.Command, args []string) error {
