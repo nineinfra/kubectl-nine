@@ -72,6 +72,9 @@ func newClusterSqlCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 }
 
 func (s *sqlCmd) validate(args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("Not enough parameters!")
+	}
 	s.sqlOpts.Name = args[0]
 	return ValidateClusterArgs("sql", args)
 }

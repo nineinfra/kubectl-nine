@@ -139,6 +139,9 @@ func newDiskCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 }
 
 func (d *diskCmd) validate(args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("Not enough parameters!")
+	}
 	d.subCommand = args[0]
 	if !strings.Contains(subCommandList, d.subCommand) {
 		return fmt.Errorf("unsupported subcommand %s, only %s supported", d.subCommand, subCommandList)
