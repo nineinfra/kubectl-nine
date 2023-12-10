@@ -65,9 +65,6 @@ func newClusterDeleteCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 }
 
 func (d *deleteCmd) validate(args []string) error {
-	if len(args) < 1 {
-		return fmt.Errorf("Not enough parameters!")
-	}
 	d.deleteOpts.Name = args[0]
 	return ValidateClusterArgs("delete", args)
 }

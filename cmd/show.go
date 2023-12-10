@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 	"github.com/spf13/cobra"
 	"io"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -48,9 +47,6 @@ func newClusterShowCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 }
 
 func (s *showCmd) validate(args []string) error {
-	if len(args) < 1 {
-		return fmt.Errorf("Not enough parameters!")
-	}
 	s.name = args[0]
 	return ValidateClusterArgs("show", args)
 }
