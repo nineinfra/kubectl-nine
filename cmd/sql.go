@@ -17,19 +17,19 @@ import (
 const (
 	sqlDesc    = `'sql' command execute sql commond on the NineCluster`
 	sqlExample = `1. Create database
-   $ kubectl nine sql c1 --namespace c1-ns "create database test"
+   $ kubectl nine sql c1 --namespace c1-ns -s "create database test"
 
 2. Create table
-   $ kubectl nine sql c1 --namespace c1-ns "create table test.test(id int,name string)"
+   $ kubectl nine sql c1 --namespace c1-ns -s "create table test.test(id int,name string)"
 
 3. Insert to table
-   $ kubectl nine sql c1 --namespace c1-ns "insert into table test.test values(1,\"nineinfa\")"
+   $ kubectl nine sql c1 --namespace c1-ns -s "insert into table test.test values(1,\"nineinfa\")"
 
 4. Select table
-   $ kubectl nine sql c1 --namespace c1-ns "select * from test.test"
+   $ kubectl nine sql c1 --namespace c1-ns -s "select * from test.test"
 
 5. Show tables
-   $ kubectl nine sql c1 --namespace c1-ns "show tables from test"`
+   $ kubectl nine sql c1 --namespace c1-ns -s "show tables from test"`
 )
 
 type SqlOptions struct {
