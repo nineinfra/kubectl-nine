@@ -49,7 +49,7 @@ func newClusterShowCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 
 func (s *showCmd) validate(args []string) error {
 	if len(args) < 1 {
-		return fmt.Errorf("Not enough parameters!")
+		return fmt.Errorf("not enough parameters")
 	}
 	s.name = args[0]
 	return ValidateClusterArgs("show", args)

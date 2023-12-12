@@ -32,7 +32,7 @@ func newInstallCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 		Example: operatorInstallExample,
 		Args:    cobra.MaximumNArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := o.run(out)
+			err := o.run()
 			if err != nil {
 				klog.Warning(err)
 				return err
@@ -42,16 +42,16 @@ func newInstallCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	}
 	cmd = DisableHelp(cmd)
 	f := cmd.Flags()
-	f.BoolVar(&DEBUG, "debug", false, "print debug infomation")
+	f.BoolVar(&DEBUG, "debug", false, "print debug information")
 	return cmd
 }
 
 // run initializes local config and installs the Nineinfra to Kubernetes cluster.
-func (o *operatorInstallCmd) run(writer io.Writer) error {
+func (o *operatorInstallCmd) run() error {
 
 	path, _ := rootCmd.Flags().GetString(kubeconfig)
 
-	parameters := []string{}
+	var parameters []string
 	if path != "" {
 		parameters = append(parameters, []string{"--kubeconfig", path}...)
 	}

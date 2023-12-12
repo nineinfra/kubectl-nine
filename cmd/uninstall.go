@@ -31,7 +31,7 @@ func newUninstallCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 		Example: operatorUninstallExample,
 		Args:    cobra.MaximumNArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := o.run(out)
+			err := o.run()
 			if err != nil {
 				klog.Warning(err)
 				return err
@@ -46,7 +46,7 @@ func newUninstallCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 }
 
 // run deletes the Nineinfra to Kubernetes cluster.
-func (o *operatorUninstallCmd) run(writer io.Writer) error {
+func (o *operatorUninstallCmd) run() error {
 	exist, cl := CheckNineClusterExist("", "")
 	if exist {
 		fmt.Printf("Error: NineClusters Exists! Please delete these NineClusters firstly!\n")
@@ -61,11 +61,11 @@ func (o *operatorUninstallCmd) run(writer io.Writer) error {
 		parameters = append(parameters, []string{"--kubeconfig", path}...)
 	}
 	flags := strings.Join(parameters, " ")
-	for c, _ := range DefaultChartList {
+	for c := range DefaultChartList {
 		err := HelmUnInstall(c, "", DefaultNamespace, flags)
 		if err != nil {
 			fmt.Printf("Error: %v \n", err)
-			os.Exit(1)
+			return err
 		}
 	}
 

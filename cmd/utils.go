@@ -39,14 +39,14 @@ func CreateIfNotExist(resource string, resourceType string, flags string) error 
 	return nil
 }
 
-func DeleteIfExist(resource string, resourceType string, flags string) error {
-	_, errput, err := runCommand("kubectl", "delete", resourceType, resource, flags)
-	if err != nil && !strings.Contains(errput, "not found") {
-		return err
-	}
-	fmt.Printf("Delete %s %s successfully!\n", resourceType, resource)
-	return nil
-}
+//func DeleteIfExist(resource string, resourceType string, flags string) error {
+//	_, errput, err := runCommand("kubectl", "delete", resourceType, resource, flags)
+//	if err != nil && !strings.Contains(errput, "not found") {
+//		return err
+//	}
+//	fmt.Printf("Delete %s %s successfully!\n", resourceType, resource)
+//	return nil
+//}
 
 func ValidateClusterArgs(cmd string, args []string) error {
 	if args == nil {
