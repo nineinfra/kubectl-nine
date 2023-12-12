@@ -140,7 +140,7 @@ func newDiskCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 
 func (d *diskCmd) validate(args []string) error {
 	if len(args) < 1 {
-		return fmt.Errorf("Not enough parameters!")
+		return fmt.Errorf("not enough parameters")
 	}
 	d.subCommand = args[0]
 	if !strings.Contains(subCommandList, d.subCommand) {
@@ -149,20 +149,20 @@ func (d *diskCmd) validate(args []string) error {
 	switch d.subCommand {
 	case "init":
 		if len(args) != 2 {
-			return fmt.Errorf("Please provide the input file!")
+			return fmt.Errorf("please provide the input file")
 		}
 		d.subArg = args[1]
 	case "discover":
 		if len(args) != 1 {
-			return fmt.Errorf("Too many input args!")
+			return fmt.Errorf("too many input args")
 		}
 	case "remove":
 		if len(args) != 1 {
-			return fmt.Errorf("Too many input args!")
+			return fmt.Errorf("too many input args")
 		}
 	case "list":
 		if len(args) != 2 {
-			return fmt.Errorf("Please provide arg for list,support[drives,volumes]!")
+			return fmt.Errorf("please provide arg for list,support[drives,volumes]")
 		}
 		d.subArg = args[1]
 	}

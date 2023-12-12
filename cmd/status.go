@@ -33,7 +33,7 @@ func newNineStatusCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 		Example: `  kubectl nine status`,
 		Args:    cobra.MaximumNArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := c.run(args)
+			err := c.run()
 			if err != nil {
 				klog.Warning(err)
 				return err
@@ -48,7 +48,7 @@ func newNineStatusCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	return cmd
 }
 
-func (d *statusCmd) run(args []string) error {
+func (d *statusCmd) run() error {
 	path, _ := rootCmd.Flags().GetString(kubeconfig)
 	client, err := GetKubeClient(path)
 	if err != nil {

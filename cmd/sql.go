@@ -8,9 +8,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"io"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/clientcmd"
 	"os"
 )
 
@@ -59,6 +56,7 @@ func newClusterSqlCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			err := c.run(args)
 			if err != nil {
+				fmt.Println(GiveSuggestionsByError(err))
 				return err
 			}
 			return nil
@@ -73,50 +71,14 @@ func newClusterSqlCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 
 func (s *sqlCmd) validate(args []string) error {
 	if len(args) < 1 {
-		return fmt.Errorf("Not enough parameters!")
+		return fmt.Errorf("not enough parameters")
 	}
 	s.sqlOpts.Name = args[0]
 	return ValidateClusterArgs("sql", args)
 }
 
-func (s *sqlCmd) getThriftIpAndPort() (string, int32) {
-	svcName := s.sqlOpts.Name + DefaultNineSuffix + "-kyuubi"
-	path, _ := rootCmd.Flags().GetString(kubeconfig)
-	client, err := GetKubeClient(path)
-	if err != nil {
-		return "", 0
-	}
-	svc, err := client.CoreV1().Services(s.sqlOpts.NS).Get(context.TODO(), svcName, metav1.GetOptions{})
-	if err != nil {
-		return "", 0
-	}
-	var thriftIP string
-	var thriftPort int32
-	switch svc.Spec.Type {
-	case corev1.ServiceTypeClusterIP:
-		thriftIP = svc.Spec.ClusterIP
-		for _, v := range svc.Spec.Ports {
-			if v.Name == DefaultThriftPortName {
-				thriftPort = v.Port
-			}
-		}
-	case corev1.ServiceTypeNodePort:
-		config, err := clientcmd.BuildConfigFromFlags("", path)
-		if err != nil {
-			return "", 0
-		}
-		thriftIP = config.Host
-		for _, v := range svc.Spec.Ports {
-			if v.Name == DefaultThriftPortName {
-				thriftPort = v.NodePort
-			}
-		}
-	}
-	return thriftIP, thriftPort
-}
-
 func (s *sqlCmd) run(_ []string) error {
-	thriftIP, thriftPort := s.getThriftIpAndPort()
+	thriftIP, thriftPort := GetThriftIpAndPort(s.sqlOpts.Name, s.sqlOpts.NS)
 	if thriftIP == "" || thriftPort == 0 {
 		return errors.New("Invalid Thrift Access Info!")
 	}
@@ -125,7 +87,12 @@ func (s *sqlCmd) run(_ []string) error {
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+	defer func(conn *gohive.Connection) {
+		err := conn.Close()
+		if err != nil {
+			fmt.Printf("Error: %v \n", err)
+		}
+	}(conn)
 
 	cursor := conn.Cursor()
 	defer cursor.Close()
