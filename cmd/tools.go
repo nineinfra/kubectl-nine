@@ -31,15 +31,12 @@ const (
    $ kubectl nine tools uninstall --toolkit=superset,airflow --namespace=ns
 
 5. List tools
-   $ kubectl nine tools list --namespace=ns
-
-6. Show tool's status
-   $ kubectl nine toos show --toolkit=superset --namespace=ns`
+   $ kubectl nine tools list --namespace=ns`
 )
 
 var (
 	toolsSubCommandList = "install,uninstall,list"
-	toolsSupported      = "superset,airflow,nifi"
+	toolsSupported      = "superset,airflow,nifi,redis,zookeeper"
 )
 
 type toolsCmd struct {
@@ -84,6 +81,13 @@ func newToolsCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	cmd = DisableHelp(cmd)
 	f := cmd.Flags()
 	f.StringSliceVarP(&c.toolkitArgs, "toolkit", "t", c.toolkitArgs, "toolkit list for the NineCluster")
+	f.IntVar(&DefaultToolNifiSvcNodePort, "nifinodeport", 31333, "nodePort value for nifi https")
+	f.StringVar(&DefaultToolAirflowSvcType, "airflowsvctype", "NodePort", "service type for airflow ui")
+	f.StringVar(&DefaultToolSupersetSvcType, "supersetsvctype", "NodePort", "service type for superset ui")
+	f.StringVar(&DefaultToolNifiSvcType, "nifisvctype", "NodePort", "service type for nifi ui")
+	f.StringVar(&DefaultToolAirflowRepository, "airflowrepo", "nineinfra/airflow", "airflow image repository")
+	f.StringVar(&DefaultToolAirflowTag, "airflowtag", "2.7.3", "airflow image tag")
+	f.StringVarP(&DefaultStorageClass, "storageclass", "s", "directpv-min-io", "storageclass fo tools")
 	f.StringVarP(&c.ns, "namespace", "n", "", "k8s namespace for tools")
 	f.BoolVar(&DEBUG, "debug", false, "print debug information")
 	return cmd
@@ -402,6 +406,10 @@ func (t *toolsCmd) install(parameters []string) error {
 			err = t.installSuperset(parameters)
 		case DefaultToolNifiName:
 			err = t.installNifi(parameters)
+		case DefaultToolRedisName:
+			err = t.installRedis(parameters)
+		case DefaultToolZookeeperName:
+			err = t.installZookeeper(parameters)
 		}
 	}
 	return err
@@ -409,8 +417,9 @@ func (t *toolsCmd) install(parameters []string) error {
 
 func (t *toolsCmd) uninstall(parameters []string) error {
 	flags := strings.Join(parameters, " ")
-	for c := range DefaultToolsChartList {
-		err := HelmUnInstall(c, "", t.ns, flags)
+	for _, v := range t.toolkitArgs {
+		relName := DefaultToolsNamePrefix + v
+		err := HelmUnInstall(relName, t.ns, flags)
 		if err != nil {
 			fmt.Printf("Error: %v \n", err)
 			return err

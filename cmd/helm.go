@@ -89,14 +89,23 @@ func HelmInstall(name string, repoName string, chart string, version string, nam
 	return nil
 }
 
-func HelmUnInstall(name string, repoName string, namespace string, flags string) error {
-	if repoName == "" {
-		repoName = DefaultHelmRepoName
-	}
+func HelmUnInstall(name string, namespace string, flags string) error {
 	_, errput, err := runCommand("helm", "uninstall", name, "-n", namespace, flags)
 	if err != nil && !strings.Contains(errput, "not found") {
 		return err
 	}
 	fmt.Printf("Uninstall %s successfully!\n", name)
 	return nil
+}
+
+func CheckHelmReleaseExist(name string, namespace string) bool {
+	_, errput, err := runCommand("helm", "status", name, "-n", namespace)
+	if err != nil {
+		if !strings.Contains(errput, "not found") {
+			return false
+		} else {
+			return false
+		}
+	}
+	return true
 }

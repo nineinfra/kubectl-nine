@@ -62,7 +62,7 @@ func (o *operatorUninstallCmd) run() error {
 	}
 	flags := strings.Join(parameters, " ")
 	for c := range DefaultChartList {
-		err := HelmUnInstall(c, "", DefaultNamespace, flags)
+		err := HelmUnInstall(c, DefaultNamespace, flags)
 		if err != nil {
 			fmt.Printf("Error: %v \n", err)
 			return err

@@ -234,6 +234,9 @@ func PrintClusterProjectList(name string, namespace string) {
 
 func PrintClusterToolList(name string, namespace string) {
 	for k, v := range NineToolList {
+		if !CheckHelmReleaseExist(NineToolResourceName(k), namespace) {
+			continue
+		}
 		var readys = 0
 		var notreadys = 0
 		for s, w := range v.(map[string]string) {
