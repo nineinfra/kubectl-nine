@@ -12,7 +12,7 @@ const (
 const (
 	DefaultPGRWSVCNameSuffix             = DefaultNineSuffix + "-pg-rw"
 	DefaultToolsNamePrefix               = "nineinfra-"
-	DefaultRedisSVCName                  = DefaultToolsNamePrefix + "redis-master"
+	DefaultRedisSVCName                  = DefaultToolsNamePrefix + "redis"
 	DefaultToolAirflowDBUser             = "airflow"
 	DefaultToolAirflowDBPwd              = "airflow"
 	DefaultToolAirflowDBName             = "airflow"
@@ -45,6 +45,7 @@ var (
 	DefaultToolAirflowRepository = "nineinfra/airflow"
 	DefaultToolAirflowTag        = "2.7.3"
 	DefaultStorageClass          = "directpv-min-io"
+	DefaultToolNifiSideCarTag    = "1.36.1"
 )
 
 var DefaultChartList = map[string]string{
@@ -115,7 +116,7 @@ var NineToolNifiWorkloadList = map[string]string{
 }
 
 var NineToolRedisWorkloadList = map[string]string{
-	"redis-master": "statefulset",
+	"redis": "deployment",
 }
 
 var NineToolZookeeperWorkloadList = map[string]string{
@@ -126,7 +127,7 @@ var NineToolSvcList = map[string]string{
 	DefaultToolAirflowName:   "airflow-webserver",
 	DefaultToolSupersetName:  "superset",
 	DefaultToolNifiName:      "nifi",
-	DefaultToolRedisName:     "redis-master",
+	DefaultToolRedisName:     "redis",
 	DefaultToolZookeeperName: "zookeeper",
 }
 
@@ -134,7 +135,7 @@ var NineToolPortNameList = map[string]string{
 	DefaultToolAirflowName:   "airflow-ui",
 	DefaultToolSupersetName:  "http",
 	DefaultToolNifiName:      "https",
-	DefaultToolRedisName:     "tcp-redis",
+	DefaultToolRedisName:     "redis",
 	DefaultToolZookeeperName: "tcp-client",
 }
 

@@ -57,8 +57,7 @@ func GetKubeHost(path string) string {
 	if err != nil {
 		return ""
 	}
-
-	return config.Host
+	return GetIpFromKubeHost(config.Host)
 }
 
 func GetNineInfraClient(path string) (*nineinfrav1alpha1.Clientset, error) {
