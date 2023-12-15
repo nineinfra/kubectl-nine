@@ -5,7 +5,6 @@ const (
 	DefaultPVCLabelKey    = "v1.min.io/tenant"
 	DefaultNineSuffix     = "-nine"
 	DefaultThriftPortName = "thrift-binary"
-	DefaultStorageClass   = "directpv-min-io"
 	DefaultCMDHelm        = "helm"
 	DefaultCMDDirectPV    = "kubectl-directpv"
 	DefaultKyuubiUserName = "hive"
@@ -13,7 +12,7 @@ const (
 const (
 	DefaultPGRWSVCNameSuffix             = DefaultNineSuffix + "-pg-rw"
 	DefaultToolsNamePrefix               = "nineinfra-"
-	DefaultRedisSVCName                  = DefaultToolsNamePrefix + "redis-master"
+	DefaultRedisSVCName                  = DefaultToolsNamePrefix + "redis"
 	DefaultToolAirflowDBUser             = "airflow"
 	DefaultToolAirflowDBPwd              = "airflow"
 	DefaultToolAirflowDBName             = "airflow"
@@ -25,14 +24,8 @@ const (
 	DefaultToolNifiName                  = "nifi"
 	DefaultToolZookeeperName             = "zookeeper"
 	DefaultToolRedisName                 = "redis"
-	DefaultToolAirflowRepository         = "172.18.123.24:30003/library/airflow"
-	DefaultToolAirflowTag                = "2.7.3"
 	DefaultToolAirflowWebServerSecretKey = "2ae7138d1fc0859df4a2456dd0146785"
-	DefaultToolAirflowSvcType            = "NodePort"
 	DefaultToolAirflowDiskSize           = "20Gi"
-	DefaultToolSupersetSvcType           = "NodePort"
-	DefaultToolNifiSvcType               = "NodePort"
-	DefaultToolNifiSvcNodePort           = 31333
 	DefaultToolNifiUserName              = "admin"
 	DefaultToolNifiUserPWD               = "nineinfraadmin"
 	DefaultZookeeperSVCName              = DefaultToolsNamePrefix + "zookeeper-headless"
@@ -43,7 +36,17 @@ var (
 	DefaultToolSupersetSDataSourcesFile = "import_datasources.yaml"
 )
 
-var DEBUG = false
+var (
+	DEBUG                        = false
+	DefaultToolNifiSvcNodePort   = 31333
+	DefaultToolSupersetSvcType   = "NodePort"
+	DefaultToolNifiSvcType       = "NodePort"
+	DefaultToolAirflowSvcType    = "NodePort"
+	DefaultToolAirflowRepository = "nineinfra/airflow"
+	DefaultToolAirflowTag        = "2.7.3"
+	DefaultStorageClass          = "directpv-min-io"
+	DefaultToolNifiSideCarTag    = "1.36.1"
+)
 
 var DefaultChartList = map[string]string{
 	"cloudnative-pg":     "0.19.1",
@@ -113,7 +116,7 @@ var NineToolNifiWorkloadList = map[string]string{
 }
 
 var NineToolRedisWorkloadList = map[string]string{
-	"redis-master": "statefulset",
+	"redis": "deployment",
 }
 
 var NineToolZookeeperWorkloadList = map[string]string{
@@ -124,7 +127,7 @@ var NineToolSvcList = map[string]string{
 	DefaultToolAirflowName:   "airflow-webserver",
 	DefaultToolSupersetName:  "superset",
 	DefaultToolNifiName:      "nifi",
-	DefaultToolRedisName:     "redis-master",
+	DefaultToolRedisName:     "redis",
 	DefaultToolZookeeperName: "zookeeper",
 }
 
@@ -132,7 +135,7 @@ var NineToolPortNameList = map[string]string{
 	DefaultToolAirflowName:   "airflow-ui",
 	DefaultToolSupersetName:  "http",
 	DefaultToolNifiName:      "https",
-	DefaultToolRedisName:     "tcp-redis",
+	DefaultToolRedisName:     "redis",
 	DefaultToolZookeeperName: "tcp-client",
 }
 

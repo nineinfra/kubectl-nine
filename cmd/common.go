@@ -3,14 +3,18 @@ package cmd
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	cnpgv1 "github.com/cloudnative-pg/cloudnative-pg/api/v1"
 	"github.com/manifoldco/promptui"
 	nineinfrav1alpha1 "github.com/nineinfra/nineinfra/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/duration"
+	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/tools/remotecommand"
+	"os"
 	"os/exec"
 	"regexp"
 	"strings"
@@ -42,6 +46,49 @@ func runCommand(command string, args ...string) (string, string, error) {
 		fmt.Printf("Exec %s args:%v with output:%s,errput:%s,err:%v\n", command, args, output.String(), errput.String(), err)
 	}
 	return output.String(), errput.String(), err
+}
+
+func runExecCommand(pdName string, namespace string, tty bool, cmd []string) error {
+	if DEBUG {
+		fmt.Printf("runExecCommand %s through pod %s in %s\n", cmd, pdName, namespace)
+	}
+	path, _ := rootCmd.Flags().GetString(kubeconfig)
+	client, config, err := GetKubeClientWithConfig(path)
+	if err != nil {
+		return err
+	}
+	execReq := client.CoreV1().RESTClient().Post().
+		Resource("pods").
+		Name(pdName).
+		Namespace(namespace).
+		SubResource("exec").
+		VersionedParams(&corev1.PodExecOptions{
+			Command: cmd,
+			Stdin:   true,
+			Stdout:  true,
+			Stderr:  true,
+			TTY:     tty}, scheme.ParameterCodec)
+	executor, err := remotecommand.NewSPDYExecutor(config, "POST", execReq.URL())
+	if err != nil {
+		return err
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	err = executor.StreamWithContext(context.TODO(), remotecommand.StreamOptions{
+		Stdin:  os.Stdin,
+		Stdout: &stdout,
+		Stderr: &stderr,
+		Tty:    tty,
+	})
+	if DEBUG {
+		fmt.Printf("runExecCommand command output:%s,command err:%s,exec err:%s\n", stdout.String(), stderr.String(), err.Error())
+	}
+	if err != nil {
+		return errors.New(stderr.String())
+	}
+	return nil
 }
 
 func CheckNineClusterExist(name string, namespace string) (bool, *nineinfrav1alpha1.NineClusterList) {
@@ -126,7 +173,7 @@ func PrintStsReadyAndAge(name string, namespace string) (string, string) {
 	}
 	sts, err := client.AppsV1().StatefulSets(namespace).Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if k8serrors.IsNotFound(err) {
 			return "0/0", "0s"
 		} else {
 			return "", ""
@@ -136,23 +183,23 @@ func PrintStsReadyAndAge(name string, namespace string) (string, string) {
 	return fmt.Sprintf("%d/%d", sts.Status.ReadyReplicas, *sts.Spec.Replicas), fmt.Sprintf("%s", HumanDuration(sts.CreationTimestamp.Time))
 }
 
-func PrintDeployReadyAndAge(name string, namespace string) (string, string) {
-	path, _ := rootCmd.Flags().GetString(kubeconfig)
-	client, err := GetKubeClient(path)
-	if err != nil {
-		return "", ""
-	}
-	deploy, err := client.AppsV1().Deployments(namespace).Get(context.TODO(), name, metav1.GetOptions{})
-	if err != nil {
-		if errors.IsNotFound(err) {
-			return "0/0", "0s"
-		} else {
-			return "", ""
-		}
-	}
-
-	return fmt.Sprintf("%d/%d", deploy.Status.ReadyReplicas, *deploy.Spec.Replicas), fmt.Sprintf("%s", HumanDuration(deploy.CreationTimestamp.Time))
-}
+//func PrintDeployReadyAndAge(name string, namespace string) (string, string) {
+//	path, _ := rootCmd.Flags().GetString(kubeconfig)
+//	client, err := GetKubeClient(path)
+//	if err != nil {
+//		return "", ""
+//	}
+//	deploy, err := client.AppsV1().Deployments(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+//	if err != nil {
+//		if k8serrors.IsNotFound(err) {
+//			return "0/0", "0s"
+//		} else {
+//			return "", ""
+//		}
+//	}
+//
+//	return fmt.Sprintf("%d/%d", deploy.Status.ReadyReplicas, *deploy.Spec.Replicas), fmt.Sprintf("%s", HumanDuration(deploy.CreationTimestamp.Time))
+//}
 
 func IfPGReady(pg *cnpgv1.Cluster) bool {
 	return pg.Status.ReadyInstances == pg.Spec.Instances
@@ -179,7 +226,7 @@ func PrintPGClusterReadyAndAge(name string, namespace string) (string, string) {
 	}
 	pg, err := client.PostgresqlV1().Clusters(namespace).Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if k8serrors.IsNotFound(err) {
 			return "0/0", "0s"
 		} else {
 			return "", ""
@@ -234,6 +281,9 @@ func PrintClusterProjectList(name string, namespace string) {
 
 func PrintClusterToolList(name string, namespace string) {
 	for k, v := range NineToolList {
+		if !CheckHelmReleaseExist(NineToolResourceName(k), namespace) {
+			continue
+		}
 		var readys = 0
 		var notreadys = 0
 		for s, w := range v.(map[string]string) {
@@ -292,6 +342,11 @@ func GiveSuggestionsByError(err error) string {
 		"Could you please submit an issue on GitHub to help me improve my knowledge base? Thank you!")
 }
 
+func GetIpFromKubeHost(host string) string {
+	re := regexp.MustCompile(`\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b`)
+	return re.FindString(host)
+}
+
 func GetSvcAccessInfo(svcName string, portName string, ns string) (string, int32) {
 	path, _ := rootCmd.Flags().GetString(kubeconfig)
 	client, config, err := GetKubeClientWithConfig(path)
@@ -313,8 +368,7 @@ func GetSvcAccessInfo(svcName string, portName string, ns string) (string, int32
 			}
 		}
 	case corev1.ServiceTypeNodePort:
-		re := regexp.MustCompile(`\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b`)
-		accessIP = re.FindString(config.Host)
+		accessIP = GetIpFromKubeHost(config.Host)
 		for _, v := range svc.Spec.Ports {
 			if v.Name == portName {
 				accessPort = v.NodePort

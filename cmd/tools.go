@@ -7,10 +7,8 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 	"io"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/klog/v2"
 	"os"
 	"strings"
@@ -31,15 +29,12 @@ const (
    $ kubectl nine tools uninstall --toolkit=superset,airflow --namespace=ns
 
 5. List tools
-   $ kubectl nine tools list --namespace=ns
-
-6. Show tool's status
-   $ kubectl nine toos show --toolkit=superset --namespace=ns`
+   $ kubectl nine tools list --namespace=ns`
 )
 
 var (
 	toolsSubCommandList = "install,uninstall,list"
-	toolsSupported      = "superset,airflow,nifi"
+	toolsSupported      = "superset,airflow,nifi,redis,zookeeper"
 )
 
 type toolsCmd struct {
@@ -84,6 +79,13 @@ func newToolsCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	cmd = DisableHelp(cmd)
 	f := cmd.Flags()
 	f.StringSliceVarP(&c.toolkitArgs, "toolkit", "t", c.toolkitArgs, "toolkit list for the NineCluster")
+	f.IntVar(&DefaultToolNifiSvcNodePort, "nifinodeport", 31333, "nodePort value for nifi https")
+	f.StringVar(&DefaultToolAirflowSvcType, "airflowsvctype", "NodePort", "service type for airflow ui")
+	f.StringVar(&DefaultToolSupersetSvcType, "supersetsvctype", "NodePort", "service type for superset ui")
+	f.StringVar(&DefaultToolNifiSvcType, "nifisvctype", "NodePort", "service type for nifi ui")
+	f.StringVar(&DefaultToolAirflowRepository, "airflowrepo", "nineinfra/airflow", "airflow image repository")
+	f.StringVar(&DefaultToolAirflowTag, "airflowtag", "2.7.3", "airflow image tag")
+	f.StringVarP(&DefaultStorageClass, "storageclass", "s", "directpv-min-io", "storageclass fo tools")
 	f.StringVarP(&c.ns, "namespace", "n", "", "k8s namespace for tools")
 	f.BoolVar(&DEBUG, "debug", false, "print debug information")
 	return cmd
@@ -130,15 +132,17 @@ func (t *toolsCmd) genSupersetDataSourcesFile() error {
 		return errors.New("invalid Thrift Access Info")
 	}
 
-	data := []DatabasesConnection{
-		{
-			AllowFileUpload: true,
-			AllowCTAS:       true,
-			AllowCVAS:       true,
-			DatabaseName:    "default",
-			Extra:           "{\r\n    \"metadata_params\": {},\r\n    \"engine_params\": {},\r\n    \"metadata_cache_timeout\": {},\r\n    \"schemas_allowed_for_file_upload\": []\r\n}",
-			SqlAlchemyURI:   fmt.Sprintf("hive://%s@%s:%d", DefaultKyuubiUserName, thriftIP, thriftPort),
-			Tables:          []string{},
+	data := map[string][]DatabasesConnection{
+		"databases": {
+			{
+				AllowFileUpload: true,
+				AllowCTAS:       true,
+				AllowCVAS:       true,
+				DatabaseName:    "default",
+				Extra:           "{\r\n    \"metadata_params\": {},\r\n    \"engine_params\": {},\r\n    \"metadata_cache_timeout\": {},\r\n    \"schemas_allowed_for_file_upload\": []\r\n}",
+				SqlAlchemyURI:   fmt.Sprintf("hive://%s@%s:%d", DefaultKyuubiUserName, thriftIP, thriftPort),
+				Tables:          []string{},
+			},
 		},
 	}
 	yamlData, err := yaml.Marshal(&data)
@@ -163,10 +167,12 @@ func (t *toolsCmd) genSupersetDataSourcesFile() error {
 }
 
 func (t *toolsCmd) genSupersetParameters(relName string, parameters []string) []string {
-	if err := t.genSupersetSecretFile; err != nil {
+	if err := t.genSupersetSecretFile(); err != nil {
+		fmt.Printf("Error: %s \n", err.Error())
 		return []string{""}
 	}
-	if err := t.genSupersetDataSourcesFile; err != nil {
+	if err := t.genSupersetDataSourcesFile(); err != nil {
+		fmt.Printf("Error: %s \n", err.Error())
 		return []string{""}
 	}
 	params := append(parameters, []string{"--set", fmt.Sprintf("fullnameOverride=%s", relName)}...)
@@ -204,6 +210,7 @@ func (t *toolsCmd) genNifiParameters(relName string, parameters []string) []stri
 	params = append(params, []string{"--set", fmt.Sprintf("zookeeper.url=%s", DefaultZookeeperSVCName)}...)
 	params = append(params, []string{"--set", fmt.Sprintf("auth.singleUser.username=%s", DefaultToolNifiUserName)}...)
 	params = append(params, []string{"--set", fmt.Sprintf("auth.singleUser.password=%s", DefaultToolNifiUserPWD)}...)
+	params = append(params, []string{"--set", fmt.Sprintf("sidecar.tag=%s", DefaultToolNifiSideCarTag)}...)
 	params = append(params, []string{"--set", "zookeeper.enabled=false"}...)
 	return params
 }
@@ -234,38 +241,8 @@ func (t *toolsCmd) genAirflowParameters(relName string, parameters []string) []s
 
 func (t *toolsCmd) genRedisParameters(relName string, parameters []string) []string {
 	params := append(parameters, []string{"--set", "fullnameOverride=" + relName}...)
-	params = append(params, []string{"--set", "auth.enabled=false"}...)
-	params = append(params, []string{"--set", fmt.Sprintf("master.persistence.storageClass=%s", DefaultStorageClass)}...)
-	params = append(params, []string{"--set", "replica.replicaCount=0"}...)
+	params = append(params, []string{"--set", fmt.Sprintf("storage.className=%s", DefaultStorageClass)}...)
 	return params
-}
-
-func (t *toolsCmd) runExecCommand(pdName string, cmd []string) error {
-	path, _ := rootCmd.Flags().GetString(kubeconfig)
-	client, config, err := GetKubeClientWithConfig(path)
-	if err != nil {
-		return err
-	}
-	execReq := client.CoreV1().RESTClient().Post().
-		Resource("pods").
-		Name(pdName).
-		Namespace(t.ns).
-		SubResource("exec").
-		VersionedParams(&corev1.PodExecOptions{
-			Command: cmd,
-			Stdin:   false,
-			Stdout:  true,
-			Stderr:  true,
-			TTY:     false}, metav1.ParameterCodec)
-	executor, err := remotecommand.NewSPDYExecutor(config, "POST", execReq.URL())
-	if err != nil {
-		return err
-	}
-	err = executor.StreamWithContext(context.TODO(), remotecommand.StreamOptions{})
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func (t *toolsCmd) createDatabase(tool string) error {
@@ -297,13 +274,13 @@ func (t *toolsCmd) createDatabase(tool string) error {
 		dbName = DefaultToolSupersetName
 	}
 	pSqlCreateUserCmd := []string{"/usr/bin/psql", "-c", fmt.Sprintf("CREATE USER %s WITH PASSWORD '%s'", dbUser, dbPWD)}
-	err = t.runExecCommand(pgRWPodName, pSqlCreateUserCmd)
-	if err != nil {
+	err = runExecCommand(pgRWPodName, t.ns, false, pSqlCreateUserCmd)
+	if err != nil && !strings.Contains(err.Error(), "already exists") {
 		return err
 	}
 	pSqlCreateDatabaseCmd := []string{"/usr/bin/psql", "-c", fmt.Sprintf("CREATE DATABASE %s OWNER %s", dbName, dbUser)}
-	err = t.runExecCommand(pgRWPodName, pSqlCreateDatabaseCmd)
-	if err != nil {
+	err = runExecCommand(pgRWPodName, t.ns, false, pSqlCreateDatabaseCmd)
+	if err != nil && !strings.Contains(err.Error(), "already exists") {
 		return err
 	}
 	return nil
@@ -311,8 +288,7 @@ func (t *toolsCmd) createDatabase(tool string) error {
 
 func (t *toolsCmd) installRedis(parameters []string) error {
 	relName := DefaultToolsNamePrefix + DefaultToolRedisName
-	flags := strings.Join(t.genRedisParameters(relName, parameters), " ")
-	err := HelmInstall(relName, "", DefaultToolRedisName, DefaultToolsChartList[DefaultToolRedisName], t.ns, flags)
+	err := HelmInstallWithParameters(relName, "", DefaultToolRedisName, DefaultToolsChartList[DefaultToolRedisName], t.ns, t.genRedisParameters(relName, parameters)...)
 	if err != nil {
 		return err
 	}
@@ -329,8 +305,7 @@ func (t *toolsCmd) installAirflow(parameters []string) error {
 		return err
 	}
 	relName := DefaultToolsNamePrefix + DefaultToolAirflowName
-	flags := strings.Join(t.genAirflowParameters(relName, parameters), " ")
-	err = HelmInstall(relName, "", DefaultToolAirflowName, DefaultToolsChartList[DefaultToolAirflowName], t.ns, flags)
+	err = HelmInstallWithParameters(relName, "", DefaultToolAirflowName, DefaultToolsChartList[DefaultToolAirflowName], t.ns, t.genAirflowParameters(relName, parameters)...)
 	if err != nil {
 		return err
 	}
@@ -347,8 +322,7 @@ func (t *toolsCmd) installSuperset(parameters []string) error {
 		return err
 	}
 	relName := DefaultToolsNamePrefix + DefaultToolSupersetName
-	flags := strings.Join(t.genSupersetParameters(relName, parameters), " ")
-	err = HelmInstall(relName, "", DefaultToolSupersetName, DefaultToolsChartList[DefaultToolSupersetName], t.ns, flags)
+	err = HelmInstallWithParameters(relName, "", DefaultToolSupersetName, DefaultToolsChartList[DefaultToolSupersetName], t.ns, t.genSupersetParameters(relName, parameters)...)
 	if err != nil {
 		return err
 	}
@@ -357,8 +331,7 @@ func (t *toolsCmd) installSuperset(parameters []string) error {
 
 func (t *toolsCmd) installZookeeper(parameters []string) error {
 	relName := DefaultToolsNamePrefix + DefaultToolZookeeperName
-	flags := strings.Join(t.genZookeeperParameters(relName, parameters), " ")
-	err := HelmInstall(relName, "", DefaultToolZookeeperName, DefaultToolsChartList[DefaultToolZookeeperName], t.ns, flags)
+	err := HelmInstallWithParameters(relName, "", DefaultToolZookeeperName, DefaultToolsChartList[DefaultToolZookeeperName], t.ns, t.genZookeeperParameters(relName, parameters)...)
 	if err != nil {
 		return err
 	}
@@ -371,8 +344,7 @@ func (t *toolsCmd) installNifi(parameters []string) error {
 		return err
 	}
 	relName := DefaultToolsNamePrefix + DefaultToolNifiName
-	flags := strings.Join(t.genNifiParameters(relName, parameters), " ")
-	err = HelmInstall(relName, "", DefaultToolNifiName, DefaultToolsChartList[DefaultToolNifiName], t.ns, flags)
+	err = HelmInstallWithParameters(relName, "", DefaultToolNifiName, DefaultToolsChartList[DefaultToolNifiName], t.ns, t.genNifiParameters(relName, parameters)...)
 	if err != nil {
 		return err
 	}
@@ -402,6 +374,10 @@ func (t *toolsCmd) install(parameters []string) error {
 			err = t.installSuperset(parameters)
 		case DefaultToolNifiName:
 			err = t.installNifi(parameters)
+		case DefaultToolRedisName:
+			err = t.installRedis(parameters)
+		case DefaultToolZookeeperName:
+			err = t.installZookeeper(parameters)
 		}
 	}
 	return err
@@ -409,8 +385,9 @@ func (t *toolsCmd) install(parameters []string) error {
 
 func (t *toolsCmd) uninstall(parameters []string) error {
 	flags := strings.Join(parameters, " ")
-	for c := range DefaultToolsChartList {
-		err := HelmUnInstall(c, "", t.ns, flags)
+	for _, v := range t.toolkitArgs {
+		relName := DefaultToolsNamePrefix + v
+		err := HelmUnInstall(relName, t.ns, flags)
 		if err != nil {
 			fmt.Printf("Error: %v \n", err)
 			return err
