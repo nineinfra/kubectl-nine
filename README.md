@@ -6,7 +6,7 @@
 
 1. Install Nine plugin in your k8s cluster
 ```sh
-$ curl -o /usr/local/bin/kubectl-nine -fsSL https://github.com/nineinfra/kubectl-nine/releases/download/v0.4.4/kubectl-nine_0.4.4_linux_amd64
+$ curl -o /usr/local/bin/kubectl-nine -fsSL https://github.com/nineinfra/kubectl-nine/releases/download/v0.4.5/kubectl-nine_0.4.5_linux_amd64
 $ chmod 0755 /usr/local/bin/kubectl-nine
 ```
 
@@ -146,6 +146,38 @@ $ kubectl nine sql nine-test -n dwh -s "select * from test.test"
 +----+-----------+
 ```
 
+## Using tools for data analysis on the data warehouse
+1. Install the tools
+```sh
+# This will show all the projects status in the NineCluster.
+$ kubectl nine tools install -t "airflow,superset,nifi" -n dwh --airflowrepo 192.168.123.24:30003/library/airflow
+# The Airflow,Superset and Nifi will be installed. And the dependencies will be installed automatically.
+# The hive database connection of the NineCluster in the namespace dwh will be added to the Superset automatically.
+```
+2. List the tools
+```sh
+$ kubectl nine tools list
+NINENAME                TOOLNAME        READY           NAMESPACE       ACCESS
+nine-test               zookeeper       1/1             dwh             10.106.31.92:2181
+nine-test               airflow         4/4             dwh             http://172.18.123.24:30406
+nine-test               superset        4/4             dwh             http://172.18.123.24:32326
+nine-test               nifi            1/1             dwh             https://172.18.123.24:31333
+nine-test               redis           1/1             dwh             redis://10.102.223.53:6379
+# The READY column indicates the status of the tool, where true means the tool is ready and false means the tool is 
+# still being prepared.
+# The ACCESS column displays the access method for the tool, which you can directly copy and paste. For example, 
+# you can copy the access method https://172.18.123.24:31333 for the NiFi tool and paste it into the address bar 
+# of your browser to open it directly.
+```
+3. Uninstall the tools
+```sh
+# kubectl nine tools uninstall -t "airflow,superset,nifi,redis,zookeeper" -n dwh
+Uninstall nineinfra-airflow successfully!
+Uninstall nineinfra-superset successfully!
+Uninstall nineinfra-nifi successfully!
+Uninstall nineinfra-redis successfully!
+Uninstall nineinfra-zookeeper successfully!
+```
 ## Contributing
 Contributing is very welcome.
 
