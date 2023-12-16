@@ -62,7 +62,7 @@ var DefaultToolsChartList = map[string]string{
 	"superset":  "0.11.2",
 	"nifi":      "1.1.6",
 	"zookeeper": "12.3.3",
-	"redis":     "18.4.0",
+	"redis":     "0.7.5",
 }
 
 var NineInfraDeploymentAlias = map[string]string{
