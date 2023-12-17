@@ -6,7 +6,7 @@
 
 1. Install Nine plugin in your k8s cluster
 ```sh
-$ curl -o /usr/local/bin/kubectl-nine -fsSL https://github.com/nineinfra/kubectl-nine/releases/download/v0.4.5/kubectl-nine_0.4.5_linux_amd64
+$ curl -o /usr/local/bin/kubectl-nine -fsSL https://github.com/nineinfra/kubectl-nine/releases/download/v0.4.6/kubectl-nine_0.4.6_linux_amd64
 $ chmod 0755 /usr/local/bin/kubectl-nine
 ```
 
@@ -109,6 +109,7 @@ nine-test-nine-kyuubi                           kyuubi          statefulset     
 9. Execute sql statements in the NineCluster
 ```sh
 # The first to do the sql in the NineCluster may take tens of seconds because it is in a cold start state.
+# Notice: Currently, you can only execute SQL commands within the k8s cluster.
 $ kubectl nine sql nine-test -n dwh -s "show databases"
 +-----------+
 | NAMESPACE |
@@ -145,7 +146,50 @@ $ kubectl nine sql nine-test -n dwh -s "select * from test.test"
 | 4  | minio     |
 +----+-----------+
 ```
-
+10. Interactive sql in the NineCluster
+```sh
+# kubectl nine sql nine-test --tty -ndwh
+0: jdbc:hive2://10.99.243.86:10009> show databases;
+show databases;
++---------------+
+|   namespace   |
++---------------+
+| default       |
+| test          |
+| tpcds_nine01  |
++---------------+
+0: jdbc:hive2://10.99.243.86:10009> show tables from test;
+show tables from test;
++------------+------------+--------------+
+| namespace  | tableName  | isTemporary  |
++------------+------------+--------------+
+| test       | test       | false        |
++------------+------------+--------------+
+0: jdbc:hive2://10.99.243.86:10009> select * from test.test;
+select * from test.test;
++-----+------------+
+| id  |    name    |
++-----+------------+
+| 1   | hadoop     |
+| 1   | nineinfra  |
++-----+------------+
+0: jdbc:hive2://10.99.243.86:10009> insert into test.test values(2,"spark");
+insert into test.test values(2,"spark");
++---------+
+| Result  |
++---------+
++---------+
+0: jdbc:hive2://10.99.243.86:10009> select * from test.test;
+select * from test.test;
++-----+------------+
+| id  |    name    |
++-----+------------+
+| 2   | spark      |
+| 1   | hadoop     |
+| 1   | nineinfra  |
++-----+------------+
+0: jdbc:hive2://10.99.243.86:10009>
+```
 ## Using tools for data analysis on the data warehouse
 1. Install the tools
 ```sh
