@@ -121,8 +121,8 @@ func (t *tpcdsCmd) runTPCDS() error {
 	if t.tpcdsOptions.ExecutorCores != 0 {
 		pCmd = append(pCmd, "--executor-cores", fmt.Sprintf("%d", t.tpcdsOptions.ExecutorCores))
 	}
-	pCmd = append(pCmd, "--db", t.tpcdsOptions.DataBase)
 	pCmd = append(pCmd, fmt.Sprintf("/opt/kyuubi/jars/%s", t.tpcdsOptions.TPCDSJar))
+	pCmd = append(pCmd, "--db", t.tpcdsOptions.DataBase)
 	if t.tpcdsOptions.GenData {
 		pCmd = append(pCmd, "--scaleFactor", fmt.Sprintf("%d", t.tpcdsOptions.ScaleFactor))
 		pCmd = append(pCmd, "--parallel", fmt.Sprintf("%d", t.tpcdsOptions.Parallel))
