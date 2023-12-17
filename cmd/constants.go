@@ -8,6 +8,8 @@ const (
 	DefaultCMDHelm        = "helm"
 	DefaultCMDDirectPV    = "kubectl-directpv"
 	DefaultKyuubiUserName = "hive"
+	DefaultKyuubiVersion  = "1.8.0"
+	DefaultScalaVersion   = "2.12"
 )
 const (
 	DefaultPGRWSVCNameSuffix             = DefaultNineSuffix + "-pg-rw"

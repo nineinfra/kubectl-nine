@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	diskDesc    = `'disk' command manages the physical disks on the k8s for the minio`
+	diskDesc    = `'disk' command manages the physical disks on the k8s for the NineCluster`
 	diskExample = `1. Discover drives
    $ kubectl nine disk discover
 
@@ -108,7 +108,7 @@ func newDiskCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "disk <SUBCOMMAND>",
-		Short:   "Manage the physical disks on the k8s for the minio",
+		Short:   "Manage the physical disks on the k8s for the NineCluster",
 		Long:    diskDesc,
 		Example: diskExample,
 		Args: func(cmd *cobra.Command, args []string) error {

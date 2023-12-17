@@ -46,6 +46,21 @@ func GetKubeClientWithConfig(path string) (*kubernetes.Clientset, *restclient.Co
 	return kubeClientset, config, nil
 }
 
+func GetKubeConfig() (*restclient.Config, error) {
+	path, _ := rootCmd.Flags().GetString(kubeconfig)
+	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+	if path != "" {
+		loadingRules.ExplicitPath = path
+	}
+	configOverrides := &clientcmd.ConfigOverrides{}
+	kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
+	config, err := kubeConfig.ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+	return config, nil
+}
+
 func GetKubeHost(path string) string {
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 	if path != "" {
