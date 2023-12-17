@@ -2,10 +2,10 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/beltran/gohive"
 	"github.com/olekukonko/tablewriter"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"io"
 	"os"
@@ -32,6 +32,8 @@ const (
 type SqlOptions struct {
 	Name      string
 	NS        string
+	TTY       bool
+	Silent    bool
 	Statement string
 }
 
@@ -65,6 +67,8 @@ func newClusterSqlCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	cmd = DisableHelp(cmd)
 	f := cmd.Flags()
 	f.StringVarP(&c.sqlOpts.NS, "namespace", "n", "", "k8s namespace for this ninecluster")
+	f.BoolVar(&c.sqlOpts.TTY, "tty", false, "interactive SQL operation")
+	f.BoolVar(&c.sqlOpts.Silent, "silent", true, "be more silent")
 	f.StringVarP(&c.sqlOpts.Statement, "statement", "s", "show databases", "simple sql statement")
 	return cmd
 }
@@ -77,10 +81,29 @@ func (s *sqlCmd) validate(args []string) error {
 	return ValidateClusterArgs("sql", args)
 }
 
-func (s *sqlCmd) run(_ []string) error {
+func (s *sqlCmd) interactiveSQL() error {
+	podName, err := GetThriftPodName(s.sqlOpts.Name, s.sqlOpts.NS)
+	if err != nil {
+		return err
+	}
 	thriftIP, thriftPort := GetThriftIpAndPort(s.sqlOpts.Name, s.sqlOpts.NS)
 	if thriftIP == "" || thriftPort == 0 {
-		return errors.New("Invalid Thrift Access Info!")
+		return errors.New("invalid Thrift Access Info")
+	}
+	pBeelineCmd := []string{"/opt/kyuubi/bin/beeline",
+		"-u", fmt.Sprintf("jdbc:hive2://%s:%d", thriftIP, thriftPort),
+		"--silent", fmt.Sprintf("%v", s.sqlOpts.Silent)}
+	err = runExecCommand(podName, s.sqlOpts.NS, true, pBeelineCmd)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *sqlCmd) directSQL() error {
+	thriftIP, thriftPort := GetThriftIpAndPort(s.sqlOpts.Name, s.sqlOpts.NS)
+	if thriftIP == "" || thriftPort == 0 {
+		return errors.New("invalid Thrift Access Info")
 	}
 	conf := gohive.NewConnectConfiguration()
 	conn, err := gohive.Connect(thriftIP, int(thriftPort), "NONE", conf)
@@ -128,4 +151,12 @@ func (s *sqlCmd) run(_ []string) error {
 		table.Render()
 	}
 	return nil
+}
+
+func (s *sqlCmd) run(_ []string) error {
+	if !s.sqlOpts.TTY {
+		return s.directSQL()
+	} else {
+		return s.interactiveSQL()
+	}
 }

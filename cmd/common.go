@@ -11,6 +11,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/duration"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
@@ -73,20 +74,32 @@ func runExecCommand(pdName string, namespace string, tty bool, cmd []string) err
 		return err
 	}
 
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
+	if !tty {
+		var stdout bytes.Buffer
+		var stderr bytes.Buffer
 
-	err = executor.StreamWithContext(context.TODO(), remotecommand.StreamOptions{
-		Stdin:  os.Stdin,
-		Stdout: &stdout,
-		Stderr: &stderr,
-		Tty:    tty,
-	})
-	if DEBUG {
-		fmt.Printf("runExecCommand command output:%s,command err:%s,exec err:%s\n", stdout.String(), stderr.String(), err.Error())
-	}
-	if err != nil {
-		return errors.New(stderr.String())
+		err = executor.StreamWithContext(context.TODO(), remotecommand.StreamOptions{
+			Stdin:  os.Stdin,
+			Stdout: &stdout,
+			Stderr: &stderr,
+			Tty:    false,
+		})
+		if DEBUG {
+			fmt.Printf("runExecCommand command output:%s,command err:%s,exec err:%s\n", stdout.String(), stderr.String(), err.Error())
+		}
+		if err != nil {
+			return errors.New(stderr.String())
+		}
+	} else {
+		err = executor.StreamWithContext(context.TODO(), remotecommand.StreamOptions{
+			Stdin:  os.Stdin,
+			Stdout: os.Stdout,
+			Stderr: os.Stderr,
+			Tty:    true,
+		})
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -378,7 +391,34 @@ func GetSvcAccessInfo(svcName string, portName string, ns string) (string, int32
 	return accessIP, accessPort
 }
 
+func GenThriftSvcName(name string) string {
+	return name + DefaultNineSuffix + "-kyuubi"
+}
 func GetThriftIpAndPort(name string, ns string) (string, int32) {
-	svcName := name + DefaultNineSuffix + "-kyuubi"
-	return GetSvcAccessInfo(svcName, DefaultThriftPortName, ns)
+	return GetSvcAccessInfo(GenThriftSvcName(name), DefaultThriftPortName, ns)
+}
+
+func GetThriftPodName(name string, ns string) (string, error) {
+	path, _ := rootCmd.Flags().GetString(kubeconfig)
+	client, err := GetKubeClient(path)
+	if err != nil {
+		return "", err
+	}
+	svc, err := client.CoreV1().Services(ns).Get(context.TODO(), GenThriftSvcName(name), metav1.GetOptions{})
+	if err != nil {
+		return "", err
+	}
+	selector := labels.Set(svc.Spec.Selector).AsSelector()
+
+	pods, err := client.CoreV1().Pods(ns).List(context.TODO(), metav1.ListOptions{
+		LabelSelector: selector.String()})
+
+	if err != nil {
+		return "", err
+	}
+
+	if len(pods.Items) == 0 {
+		return "", errors.New("pod not found")
+	}
+	return pods.Items[0].Name, nil
 }
