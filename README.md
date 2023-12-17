@@ -6,7 +6,7 @@
 
 1. Install Nine plugin in your k8s cluster
 ```sh
-$ curl -o /usr/local/bin/kubectl-nine -fsSL https://github.com/nineinfra/kubectl-nine/releases/download/v0.4.6/kubectl-nine_0.4.6_linux_amd64
+$ curl -o /usr/local/bin/kubectl-nine -fsSL https://github.com/nineinfra/kubectl-nine/releases/download/v0.4.7/kubectl-nine_0.4.7_linux_amd64
 $ chmod 0755 /usr/local/bin/kubectl-nine
 ```
 
@@ -222,6 +222,17 @@ Uninstall nineinfra-nifi successfully!
 Uninstall nineinfra-redis successfully!
 Uninstall nineinfra-zookeeper successfully!
 ```
+## Running tpcds on the NineCluster
+1. Generate data
+```sh
+$ kubectl nine tpcds nine-test -g -d tpcds_nine01 -n dwh
+```
+2. Run benchmark
+```sh
+$ kubectl nine tpcds nine-test -d tpcds_nine01 -n dwh
+# By default,the results will be stored in s3a://nineinfra/datahouse/performance
+```
+
 ## Contributing
 Contributing is very welcome.
 
