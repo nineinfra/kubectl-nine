@@ -57,6 +57,11 @@ func (o *operatorInstallCmd) run() error {
 	}
 	flags := strings.Join(parameters, " ")
 
+	if err := InitHelm(); err != nil {
+		fmt.Printf("Error: %v \n", err)
+		os.Exit(1)
+	}
+
 	if err := CreateIfNotExist(DefaultNamespace, "namespace", flags); err != nil {
 		fmt.Printf("Error: %v \n", err)
 		os.Exit(1)
