@@ -30,7 +30,7 @@ const (
    $ kubectl nine disk discover --nodes=node{1...4} --drives=sd{a...f}
 
 6. Initialize the drives
-   $ kubectl nine disk init drives.yaml
+   $ kubectl nine disk init drives.yaml --dangerous
 
 7. Remove an unused drive from all nodes
    $ kubectl nine disk remove --drives=nvme1n1
