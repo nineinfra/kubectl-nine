@@ -73,7 +73,12 @@ func runExecCommand(pdName string, namespace string, tty bool, cmd []string) err
 	if err != nil {
 		return err
 	}
-
+	defer func(Stdin *os.File) {
+		err := Stdin.Close()
+		if err != nil {
+			fmt.Printf("Error: %v \n", err)
+		}
+	}(os.Stdin)
 	if !tty {
 		var stdout bytes.Buffer
 		var stderr bytes.Buffer
