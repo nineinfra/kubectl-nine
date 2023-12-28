@@ -23,25 +23,23 @@ const (
 )
 
 type TPCDSOptions struct {
-	Name           string
-	NS             string
-	GenData        bool
-	DataBase       string
-	TPCDSJar       string
-	ScaleFactor    int
-	Parallel       int
-	Iterations     int
-	Executors      int
-	ExecutorMemory int
-	ExecutorCores  int
-	Queries        []string
-	ResultsDir     string
+	Name            string
+	NS              string
+	GenData         bool
+	DataBase        string
+	TPCDSJar        string
+	ScaleFactor     int
+	Parallel        int
+	Iterations      int
+	Executors       int
+	ExecutorMemory  int
+	ExecutorCores   int
+	Queries         []string
+	ResultsDir      string
 	StorageClass    string
 	ShuffleDiskSize int
+	ShuffleDisks    int
 	TTY             bool
-	//EnableGluten    bool
-	//OffHeapSize     int
-	//EnableAQE       bool
 }
 
 type tpcdsCmd struct {
@@ -86,10 +84,8 @@ func newClusterTPCDSCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	f.IntVar(&c.tpcdsOptions.ExecutorMemory, "executor-memory", 0, "the memory of the spark executor for the TPC-DS")
 	f.IntVar(&c.tpcdsOptions.ExecutorCores, "executor-cores", 0, "the cores of the spark executor for the TPC-DS")
 	f.StringVar(&c.tpcdsOptions.StorageClass, "storageclass", "directpv-min-io", "storageclass fo tpcds")
-	f.IntVar(&c.tpcdsOptions.ShuffleDiskSize, "shuffle-size", 200, "shuffle disk size of executor")
-	//f.BoolVarP(&c.tpcdsOptions.EnableAQE, "enable-aqe", "a", false, "enable AQE")
-	//f.BoolVarP(&c.tpcdsOptions.EnableGluten, "enable-gluten", "v", false, "enable gluten")
-	//f.IntVar(&c.tpcdsOptions.OffHeapSize, "offheap-size", 20, "offheap memory size")
+	f.IntVar(&c.tpcdsOptions.ShuffleDiskSize, "shuffle-disksize", 250, "shuffle disk size of executor")
+	f.IntVar(&c.tpcdsOptions.ShuffleDisks, "shuffle-disks", 1, "shuffle disks of executor")
 	f.BoolVar(&c.tpcdsOptions.TTY, "tty", false, "enable tty")
 	f.BoolVar(&DEBUG, "debug", false, "debug mode")
 	return cmd
@@ -124,42 +120,23 @@ func (t *tpcdsCmd) runTPCDS() error {
 	}
 	pCmd = append(pCmd, "--conf", fmt.Sprintf("spark.kyuubi.kubernetes.namespace=%s", t.tpcdsOptions.NS),
 		"--conf", "spark.kubernetes.executor.podNamePrefix=tpcds-spark",
-		"--conf", fmt.Sprintf("spark.master=k8s://%s", config.Host),
-		"--conf", "spark.kubernetes.executor.volumes.persistentVolumeClaim.spark-local-dir-1.options.claimName=OnDemand",
-		"--conf", fmt.Sprintf("spark.kubernetes.executor.volumes.persistentVolumeClaim.spark-local-dir-1.options.storageClass=%s", t.tpcdsOptions.StorageClass),
-		"--conf", fmt.Sprintf("spark.kubernetes.executor.volumes.persistentVolumeClaim.spark-local-dir-1.options.sizeLimit=%dGi", t.tpcdsOptions.ShuffleDiskSize),
-		"--conf", "spark.kubernetes.executor.volumes.persistentVolumeClaim.spark-local-dir-1.mount.path=/opt/spark/mnt",
-		"--conf", "spark.kubernetes.executor.volumes.persistentVolumeClaim.spark-local-dir-1.mount.readOnly=false")
+		"--conf", fmt.Sprintf("spark.master=k8s://%s", config.Host))
+	for i := 0; i < t.tpcdsOptions.ShuffleDisks; i++ {
+		pCmd = append(pCmd, "--conf",
+			fmt.Sprintf("spark.kubernetes.executor.volumes.persistentVolumeClaim.spark-local-dir-%d.options.claimName=OnDemand", i+1),
+			"--conf",
+			fmt.Sprintf("spark.kubernetes.executor.volumes.persistentVolumeClaim.spark-local-dir-%d.options.storageClass=%s", i+1, t.tpcdsOptions.StorageClass),
+			"--conf",
+			fmt.Sprintf("spark.kubernetes.executor.volumes.persistentVolumeClaim.spark-local-dir-%d.options.sizeLimit=%dGi", i+1, t.tpcdsOptions.ShuffleDiskSize),
+			"--conf",
+			fmt.Sprintf("spark.kubernetes.executor.volumes.persistentVolumeClaim.spark-local-dir-%d.mount.path=/opt/spark/mnt/dir%d", i+1, i+1),
+			"--conf",
+			fmt.Sprintf("spark.kubernetes.executor.volumes.persistentVolumeClaim.spark-local-dir-%d.mount.readOnly=false", i+1))
+	}
 	if t.tpcdsOptions.ExecutorCores != 0 {
 		pCmd = append(pCmd, "--conf", fmt.Sprintf("spark.kubernetes.executor.request.cores=%d", t.tpcdsOptions.ExecutorCores),
 			"--conf", fmt.Sprintf("spark.kubernetes.executor.limit.cores=%d", t.tpcdsOptions.ExecutorCores))
 	}
-	//AQE enabled by default
-	//if t.tpcdsOptions.EnableAQE {
-	//	pCmd = append(pCmd, "--conf", "spark.sql.adaptive.enabled=true",
-	//		"--conf", "spark.sql.adaptive.forceApply=false",
-	//		"--conf", "spark.sql.adaptive.logLevel=info",
-	//		"--conf", "spark.sql.adaptive.advisoryPartitionSizeInBytes=256m",
-	//		"--conf", "spark.sql.adaptive.coalescePartitions.enabled=true",
-	//		"--conf", "spark.sql.adaptive.coalescePartitions.minPartitionNum=1",
-	//		"--conf", "spark.sql.adaptive.coalescePartitions.initialPartitionNum=8192",
-	//		"--conf", "spark.sql.adaptive.fetchShuffleBlocksInBatch=true",
-	//		"--conf", "spark.sql.adaptive.localShuffleReader.enabled=true",
-	//		"--conf", "spark.sql.adaptive.skewJoin.enabled=true",
-	//		"--conf", "spark.sql.adaptive.skewJoin.skewedPartitionFactor=5",
-	//		"--conf", "spark.sql.adaptive.skewJoin.skewedPartitionThresholdInBytes=400m",
-	//		"--conf", "spark.sql.adaptive.nonEmptyPartitionRatioForBroadcastJoin=0.2",
-	//		"--conf", "spark.sql.adaptive.optimizer.excludedRules",
-	//		"--conf", "spark.sql.autoBroadcastJoinThreshold=-1")
-	//}
-	//many problems in gluten now
-	//if t.tpcdsOptions.EnableGluten {
-	//	pCmd = append(pCmd, "--conf", "spark.plugins=io.glutenproject.GlutenPlugin",
-	//		"--conf", "spark.memory.offHeap.enabled=true",
-	//		"--conf", fmt.Sprintf("spark.memory.offHeap.size=%dg", t.tpcdsOptions.OffHeapSize),
-	//		"--conf", "spark.shuffle.manager=org.apache.spark.shuffle.sort.ColumnarShuffleManager",
-	//	)
-	//}
 	if t.tpcdsOptions.Executors != 0 {
 		pCmd = append(pCmd, "--num-executors", fmt.Sprintf("%d", t.tpcdsOptions.Executors))
 	}
