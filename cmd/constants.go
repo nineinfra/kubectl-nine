@@ -1,15 +1,16 @@
 package cmd
 
 const (
-	DefaultNamespace      = "nineinfra"
-	DefaultPVCLabelKey    = "v1.min.io/tenant"
-	DefaultNineSuffix     = "-nine"
-	DefaultThriftPortName = "thrift-binary"
-	DefaultCMDHelm        = "helm"
-	DefaultCMDDirectPV    = "kubectl-directpv"
-	DefaultKyuubiUserName = "hive"
-	DefaultKyuubiVersion  = "1.8.0"
-	DefaultScalaVersion   = "2.12"
+	DefaultNamespace       = "nineinfra"
+	DefaultPVCLabelKey     = "v1.min.io/tenant"
+	DefaultNineSuffix      = "-nine"
+	DefaultThriftPortName  = "thrift-binary"
+	DefaultCMDHelm         = "helm"
+	DefaultCMDDirectPV     = "kubectl-directpv"
+	DefaultKyuubiUserName  = "hive"
+	DefaultKyuubiVersion   = "1.8.0"
+	DefaultScalaVersion    = "2.12"
+	DefaultNineInfraPrefix = "nineinfra"
 )
 const (
 	DefaultPGRWSVCNameSuffix             = DefaultNineSuffix + "-pg-rw"
@@ -31,6 +32,13 @@ const (
 	DefaultToolNifiUserName              = "admin"
 	DefaultToolNifiUserPWD               = "nineinfraadmin"
 	DefaultZookeeperSVCName              = DefaultToolsNamePrefix + "zookeeper-headless"
+)
+
+const (
+	DefaultTPCDSPodPrefix    = DefaultNineInfraPrefix + "-tpcds-spark"
+	ValidSparkDeployModeList = "client,cluster"
+	SparkDeployModeCluster   = "cluster"
+	SparkDriverNameSuffix    = "-driver"
 )
 
 var (

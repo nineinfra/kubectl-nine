@@ -90,7 +90,9 @@ func runExecCommand(pdName string, namespace string, tty bool, cmd []string) err
 			Tty:    false,
 		})
 		if DEBUG {
-			fmt.Printf("runExecCommand command output:%s,command err:%s,exec err:%s\n", stdout.String(), stderr.String(), err.Error())
+			if stdout.Len() != 0 && stderr.Len() != 0 {
+				fmt.Printf("runExecCommand command output:%s,command err:%s,exec err:%s\n", stdout.String(), stderr.String(), err.Error())
+			}
 		}
 		if err != nil {
 			return errors.New(stderr.String())
@@ -399,6 +401,11 @@ func GetSvcAccessInfo(svcName string, portName string, ns string) (string, int32
 func GenThriftSvcName(name string) string {
 	return name + DefaultNineSuffix + "-kyuubi"
 }
+
+func GenThriftServiceAccountName(name string) string {
+	return name + DefaultNineSuffix + "-kyuubi"
+}
+
 func GetThriftIpAndPort(name string, ns string) (string, int32) {
 	return GetSvcAccessInfo(GenThriftSvcName(name), DefaultThriftPortName, ns)
 }
