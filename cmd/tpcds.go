@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/spf13/cobra"
 	"io"
+	"strings"
 )
 
 const (
@@ -40,6 +41,7 @@ type TPCDSOptions struct {
 	ShuffleDiskSize int
 	ShuffleDisks    int
 	TTY             bool
+	DeployMode      string
 }
 
 type tpcdsCmd struct {
@@ -86,6 +88,7 @@ func newClusterTPCDSCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	f.StringVar(&c.tpcdsOptions.StorageClass, "storageclass", "directpv-min-io", "storageclass fo tpcds")
 	f.IntVar(&c.tpcdsOptions.ShuffleDiskSize, "shuffle-disksize", 250, "shuffle disk size of executor")
 	f.IntVar(&c.tpcdsOptions.ShuffleDisks, "shuffle-disks", 1, "shuffle disks of executor")
+	f.StringVar(&c.tpcdsOptions.DeployMode, "deploy-mode", "client", "deploy mode of spark-submit")
 	f.BoolVar(&c.tpcdsOptions.TTY, "tty", false, "enable tty")
 	f.BoolVar(&DEBUG, "debug", false, "debug mode")
 	return cmd
@@ -94,6 +97,9 @@ func newClusterTPCDSCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 func (t *tpcdsCmd) validate(args []string) error {
 	if len(args) < 1 {
 		return fmt.Errorf("not enough parameters")
+	}
+	if !strings.Contains(ValidSparkDeployModeList, t.tpcdsOptions.DeployMode) {
+		return fmt.Errorf("unsupported deploy mod %s, only %s supported", t.tpcdsOptions.DeployMode, ValidSparkDeployModeList)
 	}
 	t.tpcdsOptions.Name = args[0]
 	return ValidateClusterArgs("tpcds", args)
@@ -113,14 +119,20 @@ func (t *tpcdsCmd) runTPCDS() error {
 		return err
 	}
 	var pCmd = []string{"/opt/spark/bin/spark-submit"}
+	pCmd = append(pCmd, "--deploy-mode", t.tpcdsOptions.DeployMode)
 	if t.tpcdsOptions.GenData {
 		pCmd = append(pCmd, "--class", "org.apache.kyuubi.tpcds.DataGenerator")
 	} else {
 		pCmd = append(pCmd, "--class", "org.apache.kyuubi.tpcds.benchmark.RunBenchmark")
 	}
 	pCmd = append(pCmd, "--conf", fmt.Sprintf("spark.kyuubi.kubernetes.namespace=%s", t.tpcdsOptions.NS),
-		"--conf", "spark.kubernetes.executor.podNamePrefix=tpcds-spark",
+		"--conf", fmt.Sprintf("spark.kubernetes.executor.podNamePrefix=%s", DefaultTPCDSPodPrefix),
 		"--conf", fmt.Sprintf("spark.master=k8s://%s", config.Host))
+	if t.tpcdsOptions.DeployMode == SparkDeployModeCluster {
+		pCmd = append(pCmd, "--conf", fmt.Sprintf("spark.kubernetes.driver.pod.name=%s", DefaultTPCDSPodPrefix+SparkDriverNameSuffix),
+			"--conf", fmt.Sprintf("spark.kubernetes.file.upload.path=%s", t.tpcdsOptions.ResultsDir),
+			"--conf", fmt.Sprintf("spark.kubernetes.authenticate.driver.serviceAccountName=%s", GenThriftServiceAccountName(t.tpcdsOptions.Name)))
+	}
 	for i := 0; i < t.tpcdsOptions.ShuffleDisks; i++ {
 		pCmd = append(pCmd, "--conf",
 			fmt.Sprintf("spark.kubernetes.executor.volumes.persistentVolumeClaim.spark-local-dir-%d.options.claimName=OnDemand", i+1),
