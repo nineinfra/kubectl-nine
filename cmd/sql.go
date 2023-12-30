@@ -93,7 +93,7 @@ func (s *sqlCmd) interactiveSQL() error {
 	pBeelineCmd := []string{"/opt/kyuubi/bin/beeline",
 		"-u", fmt.Sprintf("jdbc:hive2://%s:%d", thriftIP, thriftPort),
 		"--silent", fmt.Sprintf("%v", s.sqlOpts.Silent)}
-	err = runExecCommand(podName, s.sqlOpts.NS, true, pBeelineCmd)
+	_, err = runExecCommand(podName, s.sqlOpts.NS, true, pBeelineCmd)
 	if err != nil {
 		return err
 	}

@@ -274,12 +274,12 @@ func (t *toolsCmd) createDatabase(tool string) error {
 		dbName = DefaultToolSupersetName
 	}
 	pSqlCreateUserCmd := []string{"/usr/bin/psql", "-c", fmt.Sprintf("CREATE USER %s WITH PASSWORD '%s'", dbUser, dbPWD)}
-	err = runExecCommand(pgRWPodName, t.ns, false, pSqlCreateUserCmd)
+	_, err = runExecCommand(pgRWPodName, t.ns, false, pSqlCreateUserCmd)
 	if err != nil && !strings.Contains(err.Error(), "already exists") {
 		return err
 	}
 	pSqlCreateDatabaseCmd := []string{"/usr/bin/psql", "-c", fmt.Sprintf("CREATE DATABASE %s OWNER %s", dbName, dbUser)}
-	err = runExecCommand(pgRWPodName, t.ns, false, pSqlCreateDatabaseCmd)
+	_, err = runExecCommand(pgRWPodName, t.ns, false, pSqlCreateDatabaseCmd)
 	if err != nil && !strings.Contains(err.Error(), "already exists") {
 		return err
 	}

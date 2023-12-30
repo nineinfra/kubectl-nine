@@ -1,10 +1,16 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/spf13/cobra"
 	"io"
+	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"strings"
 )
 
@@ -41,7 +47,9 @@ type TPCDSOptions struct {
 	ShuffleDiskSize int
 	ShuffleDisks    int
 	TTY             bool
+	Stop            bool
 	DeployMode      string
+	SparkUI         int
 }
 
 type tpcdsCmd struct {
@@ -89,6 +97,8 @@ func newClusterTPCDSCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	f.IntVar(&c.tpcdsOptions.ShuffleDiskSize, "shuffle-disksize", 250, "shuffle disk size of executor")
 	f.IntVar(&c.tpcdsOptions.ShuffleDisks, "shuffle-disks", 1, "shuffle disks of executor")
 	f.StringVar(&c.tpcdsOptions.DeployMode, "deploy-mode", "client", "deploy mode of spark-submit")
+	f.IntVar(&c.tpcdsOptions.SparkUI, "spark-ui", DefaultSparkUINodePort, "nodeport of spark UI")
+	f.BoolVar(&c.tpcdsOptions.Stop, "stop", false, "stop and clean the running TPC-DS")
 	f.BoolVar(&c.tpcdsOptions.TTY, "tty", false, "enable tty")
 	f.BoolVar(&DEBUG, "debug", false, "debug mode")
 	return cmd
@@ -105,6 +115,145 @@ func (t *tpcdsCmd) validate(args []string) error {
 	return ValidateClusterArgs("tpcds", args)
 }
 
+func (t *tpcdsCmd) deleteSparkUIService() error {
+	path, _ := rootCmd.Flags().GetString(kubeconfig)
+	client, err := GetKubeClient(path)
+	if err != nil {
+		return err
+	}
+	svcName := DefaultTPCDSPrefix + "-cluster"
+	err = client.CoreV1().Services(t.tpcdsOptions.NS).Delete(context.TODO(), svcName, metav1.DeleteOptions{})
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return err
+	} else if !k8serrors.IsNotFound(err) {
+		fmt.Printf("Delete the spark-ui service %s successfully!\n", svcName)
+	}
+	svcName = DefaultTPCDSPrefix + "-client"
+	err = client.CoreV1().Services(t.tpcdsOptions.NS).Delete(context.TODO(), svcName, metav1.DeleteOptions{})
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return err
+	} else if !k8serrors.IsNotFound(err) {
+		fmt.Printf("Delete the spark-ui service %s successfully!\n", svcName)
+	}
+	return nil
+}
+
+func (t *tpcdsCmd) updateSparkUIService() error {
+	var svcName string
+	var selector map[string]string
+	if t.tpcdsOptions.DeployMode == SparkDeployModeCluster {
+		svcName = DefaultTPCDSPrefix + "-cluster"
+		selector = map[string]string{
+			"cluster":    t.tpcdsOptions.Name,
+			"app":        DefaultTPCDSAPP,
+			"spark-role": "driver",
+		}
+	} else {
+		svcName = DefaultTPCDSPrefix + "-client"
+		selector = map[string]string{
+			"cluster": t.tpcdsOptions.Name,
+			"app":     "kyuubi",
+		}
+	}
+	path, _ := rootCmd.Flags().GetString(kubeconfig)
+	client, err := GetKubeClient(path)
+	if err != nil {
+		return err
+	}
+	_, err = client.CoreV1().Services(t.tpcdsOptions.NS).Get(context.TODO(), svcName, metav1.GetOptions{})
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return err
+	}
+	if k8serrors.IsNotFound(err) {
+		diseredSvc := &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      svcName,
+				Namespace: t.tpcdsOptions.NS,
+				Labels: map[string]string{
+					"cluster": t.tpcdsOptions.Name,
+					"app":     "kyuubi",
+				},
+			},
+			Spec: corev1.ServiceSpec{
+				Type: corev1.ServiceTypeNodePort,
+				Ports: []corev1.ServicePort{
+					{
+						Name:     DefaultSparkUIName,
+						Port:     DefaultSparkUIPort,
+						NodePort: DefaultSparkUINodePort,
+						TargetPort: intstr.IntOrString{
+							Type:   intstr.Int,
+							IntVal: int32(DefaultSparkUIPort),
+						},
+					},
+				},
+				Selector: selector,
+			},
+		}
+		_, err := client.CoreV1().Services(t.tpcdsOptions.NS).Create(context.TODO(), diseredSvc, metav1.CreateOptions{})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (t *tpcdsCmd) stopRunningTPCDS(podName string) error {
+	pid := GetCustomAppRunningPid(podName, t.tpcdsOptions.NS, DefaultTPCDSPrefix)
+	if pid != "" {
+		err := KillCustomAppRunningPid(podName, t.tpcdsOptions.NS, pid)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("Kill the spark-submit process %s successfully!\n", pid)
+	}
+	path, _ := rootCmd.Flags().GetString(kubeconfig)
+	client, err := GetKubeClient(path)
+	if err != nil {
+		return err
+	}
+	selector := labels.Set(map[string]string{
+		"cluster":    t.tpcdsOptions.Name,
+		"app":        DefaultTPCDSAPP,
+		"spark-role": "driver",
+	}).AsSelector()
+	podList, err := client.CoreV1().Pods(t.tpcdsOptions.NS).List(context.TODO(), metav1.ListOptions{LabelSelector: selector.String()})
+	if len(podList.Items) > 0 {
+		err = client.CoreV1().Pods(t.tpcdsOptions.NS).DeleteCollection(context.TODO(), metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: selector.String()})
+		if err != nil {
+			return err
+		}
+		fmt.Printf("Delete the spark driver pod %s and executor pods successfully!\n", podList.Items[0].Name)
+	}
+	return nil
+}
+
+func (t *tpcdsCmd) checkTPCDSIsRunning(podName string) bool {
+	pid := GetCustomAppRunningPid(podName, t.tpcdsOptions.NS, DefaultTPCDSPrefix)
+	if pid != "" {
+		return true
+	}
+	path, _ := rootCmd.Flags().GetString(kubeconfig)
+	client, err := GetKubeClient(path)
+	if err != nil {
+		return false
+	}
+
+	selector := labels.Set(map[string]string{
+		"cluster": t.tpcdsOptions.Name,
+		"app":     DefaultTPCDSAPP,
+	}).AsSelector()
+	podList, err := client.CoreV1().Pods(t.tpcdsOptions.NS).List(context.TODO(), metav1.ListOptions{LabelSelector: selector.String()})
+	if err != nil {
+		return false
+	}
+	if len(podList.Items) != 0 {
+		fmt.Printf("the TPC-DS is already running with some spark pods in executing,such as %s\n", podList.Items[0].Name)
+		return true
+	}
+	return false
+}
+
 func (t *tpcdsCmd) runTPCDS() error {
 	podName, err := GetThriftPodName(t.tpcdsOptions.Name, t.tpcdsOptions.NS)
 	if err != nil {
@@ -118,21 +267,44 @@ func (t *tpcdsCmd) runTPCDS() error {
 	if err != nil {
 		return err
 	}
+
+	if t.tpcdsOptions.Stop {
+		err = t.deleteSparkUIService()
+		if err != nil {
+			return err
+		}
+		return t.stopRunningTPCDS(podName)
+	}
+
+	if t.checkTPCDSIsRunning(podName) {
+		return fmt.Errorf("the TPC-DS is already exist")
+	}
+
+	if err := t.updateSparkUIService(); err != nil {
+		fmt.Printf("Error: %v \n", err)
+	}
 	var pCmd = []string{"/opt/spark/bin/spark-submit"}
+
 	pCmd = append(pCmd, "--deploy-mode", t.tpcdsOptions.DeployMode)
+
 	if t.tpcdsOptions.GenData {
 		pCmd = append(pCmd, "--class", "org.apache.kyuubi.tpcds.DataGenerator")
 	} else {
 		pCmd = append(pCmd, "--class", "org.apache.kyuubi.tpcds.benchmark.RunBenchmark")
 	}
+
 	pCmd = append(pCmd, "--conf", fmt.Sprintf("spark.kyuubi.kubernetes.namespace=%s", t.tpcdsOptions.NS),
-		"--conf", fmt.Sprintf("spark.kubernetes.executor.podNamePrefix=%s", DefaultTPCDSPodPrefix),
+		"--conf", fmt.Sprintf("spark.kubernetes.executor.podNamePrefix=%s", DefaultTPCDSPrefix),
 		"--conf", fmt.Sprintf("spark.master=k8s://%s", config.Host))
+
 	if t.tpcdsOptions.DeployMode == SparkDeployModeCluster {
-		pCmd = append(pCmd, "--conf", fmt.Sprintf("spark.kubernetes.driver.pod.name=%s", DefaultTPCDSPodPrefix+SparkDriverNameSuffix),
+		pCmd = append(pCmd, "--conf", fmt.Sprintf("spark.kubernetes.driver.pod.name=%s", DefaultTPCDSPrefix+SparkDriverNameSuffix),
 			"--conf", fmt.Sprintf("spark.kubernetes.file.upload.path=%s", t.tpcdsOptions.ResultsDir),
-			"--conf", fmt.Sprintf("spark.kubernetes.authenticate.driver.serviceAccountName=%s", GenThriftServiceAccountName(t.tpcdsOptions.Name)))
+			"--conf", fmt.Sprintf("spark.kubernetes.authenticate.driver.serviceAccountName=%s", GenThriftServiceAccountName(t.tpcdsOptions.Name)),
+			"--conf", fmt.Sprintf("spark.kubernetes.driver.label.cluster=%s", t.tpcdsOptions.Name),
+			"--conf", fmt.Sprintf("spark.kubernetes.driver.label.app=%s", DefaultTPCDSAPP))
 	}
+
 	for i := 0; i < t.tpcdsOptions.ShuffleDisks; i++ {
 		pCmd = append(pCmd, "--conf",
 			fmt.Sprintf("spark.kubernetes.executor.volumes.persistentVolumeClaim.spark-local-dir-%d.options.claimName=OnDemand", i+1),
@@ -145,21 +317,31 @@ func (t *tpcdsCmd) runTPCDS() error {
 			"--conf",
 			fmt.Sprintf("spark.kubernetes.executor.volumes.persistentVolumeClaim.spark-local-dir-%d.mount.readOnly=false", i+1))
 	}
+
 	if t.tpcdsOptions.ExecutorCores != 0 {
 		pCmd = append(pCmd, "--conf", fmt.Sprintf("spark.kubernetes.executor.request.cores=%d", t.tpcdsOptions.ExecutorCores),
 			"--conf", fmt.Sprintf("spark.kubernetes.executor.limit.cores=%d", t.tpcdsOptions.ExecutorCores))
 	}
+
+	pCmd = append(pCmd,
+		"--conf", fmt.Sprintf("spark.kubernetes.executor.label.cluster=%s", t.tpcdsOptions.Name),
+		"--conf", fmt.Sprintf("spark.kubernetes.executor.label.app=%s", DefaultTPCDSAPP))
+
 	if t.tpcdsOptions.Executors != 0 {
 		pCmd = append(pCmd, "--num-executors", fmt.Sprintf("%d", t.tpcdsOptions.Executors))
 	}
+
 	if t.tpcdsOptions.ExecutorMemory != 0 {
 		pCmd = append(pCmd, "--executor-memory", fmt.Sprintf("%dG", t.tpcdsOptions.ExecutorMemory))
 	}
+
 	if t.tpcdsOptions.ExecutorCores != 0 {
 		pCmd = append(pCmd, "--executor-cores", fmt.Sprintf("%d", t.tpcdsOptions.ExecutorCores))
 	}
+
 	pCmd = append(pCmd, fmt.Sprintf("/opt/kyuubi/jars/%s", t.tpcdsOptions.TPCDSJar))
 	pCmd = append(pCmd, "--db", t.tpcdsOptions.DataBase)
+
 	if t.tpcdsOptions.GenData {
 		pCmd = append(pCmd, "--scaleFactor", fmt.Sprintf("%d", t.tpcdsOptions.ScaleFactor))
 		pCmd = append(pCmd, "--parallel", fmt.Sprintf("%d", t.tpcdsOptions.Parallel))
@@ -170,7 +352,7 @@ func (t *tpcdsCmd) runTPCDS() error {
 		}
 		pCmd = append(pCmd, "--results-dir", fmt.Sprintf("%s", t.tpcdsOptions.ResultsDir))
 	}
-	err = runExecCommand(podName, t.tpcdsOptions.NS, t.tpcdsOptions.TTY, pCmd)
+	_, err = runExecCommand(podName, t.tpcdsOptions.NS, t.tpcdsOptions.TTY, pCmd)
 	if err != nil {
 		return err
 	}
