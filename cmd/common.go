@@ -29,7 +29,8 @@ const (
 )
 
 var Err2Suggestions = map[string]string{
-	"connection timed out": "If you run the nine out of the k8s? or if the status of the NineCluster is not ready?",
+	"connection timed out":        "If you run the nine out of the k8s? or if the status of the NineCluster is not ready?",
+	"the TPC-DS is already exist": "You can stop it by execute the nine TPC-DS stop command",
 }
 
 func runCommand(command string, args ...string) (string, string, error) {
@@ -49,14 +50,14 @@ func runCommand(command string, args ...string) (string, string, error) {
 	return output.String(), errput.String(), err
 }
 
-func runExecCommand(pdName string, namespace string, tty bool, cmd []string) error {
+func runExecCommand(pdName string, namespace string, tty bool, cmd []string) (string, error) {
 	if DEBUG {
 		fmt.Printf("runExecCommand %s through pod %s in %s\n", cmd, pdName, namespace)
 	}
 	path, _ := rootCmd.Flags().GetString(kubeconfig)
 	client, config, err := GetKubeClientWithConfig(path)
 	if err != nil {
-		return err
+		return "", err
 	}
 	execReq := client.CoreV1().RESTClient().Post().
 		Resource("pods").
@@ -71,14 +72,14 @@ func runExecCommand(pdName string, namespace string, tty bool, cmd []string) err
 			TTY:     tty}, scheme.ParameterCodec)
 	executor, err := remotecommand.NewSPDYExecutor(config, "POST", execReq.URL())
 	if err != nil {
-		return err
+		return "", err
 	}
-	defer func(Stdin *os.File) {
-		err := Stdin.Close()
-		if err != nil {
-			fmt.Printf("Error: %v \n", err)
-		}
-	}(os.Stdin)
+	//defer func(Stdin *os.File) {
+	//	err := Stdin.Close()
+	//	if err != nil {
+	//		fmt.Printf("Error: %v \n", err)
+	//	}
+	//}(os.Stdin)
 	if !tty {
 		var stdout bytes.Buffer
 		var stderr bytes.Buffer
@@ -95,8 +96,9 @@ func runExecCommand(pdName string, namespace string, tty bool, cmd []string) err
 			}
 		}
 		if err != nil {
-			return errors.New(stderr.String())
+			return stderr.String(), err
 		}
+		return stdout.String(), nil
 	} else {
 		err = executor.StreamWithContext(context.TODO(), remotecommand.StreamOptions{
 			Stdin:  os.Stdin,
@@ -105,10 +107,10 @@ func runExecCommand(pdName string, namespace string, tty bool, cmd []string) err
 			Tty:    true,
 		})
 		if err != nil {
-			return err
+			return "", err
 		}
+		return "", nil
 	}
-	return nil
 }
 
 func CheckNineClusterExist(name string, namespace string) (bool, *nineinfrav1alpha1.NineClusterList) {
@@ -433,4 +435,36 @@ func GetThriftPodName(name string, ns string) (string, error) {
 		return "", errors.New("pod not found")
 	}
 	return pods.Items[0].Name, nil
+}
+
+func GetCustomAppRunningPid(podName string, ns string, prefix string) string {
+	var pCmd = []string{"ps", "-elf"}
+	output, err := runExecCommand(podName, ns, false, pCmd)
+	if err != nil {
+		fmt.Printf("Output:%s,Error: %s \n", output, err.Error())
+		return ""
+	}
+	if output != "" {
+		processLines := strings.Split(output, "\n")
+		for _, line := range processLines {
+			if strings.Contains(line, prefix) {
+				fields := strings.Fields(line)
+				if len(fields) > 4 {
+					return fields[3]
+				}
+			}
+		}
+	}
+	return ""
+}
+
+func KillCustomAppRunningPid(podName string, ns string, pid string) error {
+	var pCmd = []string{"kill", "-9", pid}
+	output, err := runExecCommand(podName, ns, false, pCmd)
+	if err != nil {
+		fmt.Printf("Output:%s,Error: %s \n", output, err.Error())
+		return err
+	}
+
+	return nil
 }

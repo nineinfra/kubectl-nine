@@ -35,10 +35,14 @@ const (
 )
 
 const (
-	DefaultTPCDSPodPrefix    = DefaultNineInfraPrefix + "-tpcds-spark"
+	DefaultTPCDSPrefix       = DefaultNineInfraPrefix + "-tpcds-spark"
+	DefaultTPCDSAPP          = DefaultNineInfraPrefix + "-tpcds-spark"
 	ValidSparkDeployModeList = "client,cluster"
 	SparkDeployModeCluster   = "cluster"
 	SparkDriverNameSuffix    = "-driver"
+	DefaultSparkUINodePort   = 31334
+	DefaultSparkUIPort       = 4040
+	DefaultSparkUIName       = "spark-ui"
 )
 
 var (
