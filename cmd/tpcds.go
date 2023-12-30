@@ -41,6 +41,8 @@ type TPCDSOptions struct {
 	Executors       int
 	ExecutorMemory  int
 	ExecutorCores   int
+	DriverMemory    int
+	DriverCores     int
 	Queries         []string
 	ResultsDir      string
 	StorageClass    string
@@ -92,6 +94,8 @@ func newClusterTPCDSCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	f.StringVarP(&c.tpcdsOptions.TPCDSJar, "jar", "j", fmt.Sprintf("kyuubi-tpcds_%s-%s.jar", DefaultScalaVersion, DefaultKyuubiVersion), "jar for TPC-DS")
 	f.StringVarP(&c.tpcdsOptions.ResultsDir, "results-dir", "r", "s3a://nineinfra/datahouse/performance", "the dir to store benchmark results")
 	f.IntVar(&c.tpcdsOptions.Executors, "num-executors", 0, "the number of the spark executors for the TPC-DS")
+	f.IntVar(&c.tpcdsOptions.DriverCores, "driver-cores", 0, "the cores of the spark driver for the TPC-DS")
+	f.IntVar(&c.tpcdsOptions.DriverMemory, "driver-memory", 0, "the memory of the spark driver for the TPC-DS")
 	f.IntVar(&c.tpcdsOptions.ExecutorMemory, "executor-memory", 0, "the memory of the spark executor for the TPC-DS")
 	f.IntVar(&c.tpcdsOptions.ExecutorCores, "executor-cores", 0, "the cores of the spark executor for the TPC-DS")
 	f.StringVar(&c.tpcdsOptions.StorageClass, "storageclass", "directpv-min-io", "storageclass fo tpcds")
@@ -377,6 +381,14 @@ func (t *tpcdsCmd) runTPCDS() error {
 		"--conf", fmt.Sprintf("spark.kubernetes.executor.label.cluster=%s", t.tpcdsOptions.Name),
 		"--conf", fmt.Sprintf("spark.kubernetes.executor.label.app=%s", DefaultTPCDSAPP))
 
+	if t.tpcdsOptions.DeployMode == SparkDeployModeCluster {
+		if t.tpcdsOptions.DriverMemory != 0 {
+			pCmd = append(pCmd, "--driver-memory", fmt.Sprintf("%dG", t.tpcdsOptions.DriverMemory))
+		}
+		if t.tpcdsOptions.DriverCores != 0 {
+			pCmd = append(pCmd, "--driver-cores", fmt.Sprintf("%d", t.tpcdsOptions.DriverCores))
+		}
+	}
 	if t.tpcdsOptions.Executors != 0 {
 		pCmd = append(pCmd, "--num-executors", fmt.Sprintf("%d", t.tpcdsOptions.Executors))
 	}
