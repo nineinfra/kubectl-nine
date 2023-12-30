@@ -13,6 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/duration"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
 	"os"
@@ -467,4 +468,26 @@ func KillCustomAppRunningPid(podName string, ns string, pid string) error {
 	}
 
 	return nil
+}
+
+func GetReleasedAndDeletePolicyPVList(clientset *kubernetes.Clientset, claimPrefix string) (*corev1.PersistentVolumeList, error) {
+	if claimPrefix == "" {
+		return nil, errors.New("invalid parametes")
+	}
+
+	pvList, err := clientset.CoreV1().PersistentVolumes().List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	var specificPVList []corev1.PersistentVolume
+	for _, pv := range pvList.Items {
+		if pv.Status.Phase == corev1.VolumeReleased &&
+			pv.Spec.PersistentVolumeReclaimPolicy == corev1.PersistentVolumeReclaimDelete &&
+			pv.Spec.ClaimRef != nil && strings.Contains(pv.Spec.ClaimRef.Name, claimPrefix) {
+			specificPVList = append(specificPVList, pv)
+		}
+	}
+
+	return &corev1.PersistentVolumeList{Items: specificPVList}, nil
 }

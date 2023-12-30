@@ -48,6 +48,7 @@ type TPCDSOptions struct {
 	ShuffleDisks    int
 	TTY             bool
 	Stop            bool
+	Force           bool
 	DeployMode      string
 	SparkUI         int
 }
@@ -99,6 +100,7 @@ func newClusterTPCDSCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	f.StringVar(&c.tpcdsOptions.DeployMode, "deploy-mode", "client", "deploy mode of spark-submit")
 	f.IntVar(&c.tpcdsOptions.SparkUI, "spark-ui", DefaultSparkUINodePort, "nodeport of spark UI")
 	f.BoolVar(&c.tpcdsOptions.Stop, "stop", false, "stop and clean the running TPC-DS")
+	f.BoolVar(&c.tpcdsOptions.Force, "force", false, "force to stop and clean the running TPC-DS")
 	f.BoolVar(&c.tpcdsOptions.TTY, "tty", false, "enable tty")
 	f.BoolVar(&DEBUG, "debug", false, "debug mode")
 	return cmd
@@ -212,18 +214,48 @@ func (t *tpcdsCmd) stopRunningTPCDS(podName string) error {
 	if err != nil {
 		return err
 	}
-	selector := labels.Set(map[string]string{
-		"cluster":    t.tpcdsOptions.Name,
-		"app":        DefaultTPCDSAPP,
-		"spark-role": "driver",
-	}).AsSelector()
-	podList, err := client.CoreV1().Pods(t.tpcdsOptions.NS).List(context.TODO(), metav1.ListOptions{LabelSelector: selector.String()})
-	if len(podList.Items) > 0 {
-		err = client.CoreV1().Pods(t.tpcdsOptions.NS).DeleteCollection(context.TODO(), metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: selector.String()})
+	if !t.tpcdsOptions.Force {
+		selector := labels.Set(map[string]string{
+			"cluster":    t.tpcdsOptions.Name,
+			"app":        DefaultTPCDSAPP,
+			"spark-role": "driver",
+		}).AsSelector()
+		podList, err := client.CoreV1().Pods(t.tpcdsOptions.NS).List(context.TODO(), metav1.ListOptions{LabelSelector: selector.String()})
+		if len(podList.Items) > 0 {
+			err = client.CoreV1().Pods(t.tpcdsOptions.NS).DeleteCollection(context.TODO(), metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: selector.String()})
+			if err != nil {
+				return err
+			}
+			fmt.Printf("Delete the spark driver pod %s and executor pods successfully!\n", podList.Items[0].Name)
+		}
+	} else {
+		selector := labels.Set(map[string]string{
+			"cluster": t.tpcdsOptions.Name,
+			"app":     DefaultTPCDSAPP,
+		}).AsSelector()
+		podList, err := client.CoreV1().Pods(t.tpcdsOptions.NS).List(context.TODO(), metav1.ListOptions{LabelSelector: selector.String()})
+		if len(podList.Items) > 0 {
+			gracePeriodSeconds := int64(0)
+			deletePolicy := metav1.DeletePropagationForeground
+			err = client.CoreV1().Pods(t.tpcdsOptions.NS).DeleteCollection(context.TODO(),
+				metav1.DeleteOptions{GracePeriodSeconds: &gracePeriodSeconds, PropagationPolicy: &deletePolicy},
+				metav1.ListOptions{LabelSelector: selector.String()})
+			if err != nil {
+				return err
+			}
+			fmt.Printf("Delete the spark driver pod and executor pods successfully!\n")
+		}
+		pvList, err := GetReleasedAndDeletePolicyPVList(client, DefaultTPCDSPrefix)
 		if err != nil {
 			return err
 		}
-		fmt.Printf("Delete the spark driver pod %s and executor pods successfully!\n", podList.Items[0].Name)
+		for _, pv := range pvList.Items {
+			err = client.CoreV1().PersistentVolumes().Delete(context.TODO(), pv.Name, metav1.DeleteOptions{})
+			if err != nil {
+				return err
+			}
+			fmt.Printf("Delete the pv %s of the TPC-DS successfully!\n", pv.Name)
+		}
 	}
 	return nil
 }
@@ -249,6 +281,14 @@ func (t *tpcdsCmd) checkTPCDSIsRunning(podName string) bool {
 	}
 	if len(podList.Items) != 0 {
 		fmt.Printf("the TPC-DS is already running with some spark pods in executing,such as %s\n", podList.Items[0].Name)
+		return true
+	}
+	pvList, err := GetReleasedAndDeletePolicyPVList(client, DefaultTPCDSPrefix)
+	if err != nil {
+		return false
+	}
+	if len(pvList.Items) != 0 {
+		fmt.Printf("the TPC-DS is blocking with some pv in deleting,such as %s\n", pvList.Items[0].Name)
 		return true
 	}
 	return false
@@ -302,7 +342,17 @@ func (t *tpcdsCmd) runTPCDS() error {
 			"--conf", fmt.Sprintf("spark.kubernetes.file.upload.path=%s", t.tpcdsOptions.ResultsDir),
 			"--conf", fmt.Sprintf("spark.kubernetes.authenticate.driver.serviceAccountName=%s", GenThriftServiceAccountName(t.tpcdsOptions.Name)),
 			"--conf", fmt.Sprintf("spark.kubernetes.driver.label.cluster=%s", t.tpcdsOptions.Name),
-			"--conf", fmt.Sprintf("spark.kubernetes.driver.label.app=%s", DefaultTPCDSAPP))
+			"--conf", fmt.Sprintf("spark.kubernetes.driver.label.app=%s", DefaultTPCDSAPP),
+			"--conf",
+			fmt.Sprintf("spark.kubernetes.driver.volumes.persistentVolumeClaim.spark-local-dir-1.options.claimName=OnDemand"),
+			"--conf",
+			fmt.Sprintf("spark.kubernetes.driver.volumes.persistentVolumeClaim.spark-local-dir-1.options.storageClass=%s", t.tpcdsOptions.StorageClass),
+			"--conf",
+			fmt.Sprintf("spark.kubernetes.driver.volumes.persistentVolumeClaim.spark-local-dir-1.options.sizeLimit=%dGi", t.tpcdsOptions.ShuffleDiskSize),
+			"--conf",
+			fmt.Sprintf("spark.kubernetes.driver.volumes.persistentVolumeClaim.spark-local-dir-1.mount.path=/opt/spark/mnt/dir1"),
+			"--conf",
+			fmt.Sprintf("spark.kubernetes.driver.volumes.persistentVolumeClaim.spark-local-dir-1.mount.readOnly=false"))
 	}
 
 	for i := 0; i < t.tpcdsOptions.ShuffleDisks; i++ {
