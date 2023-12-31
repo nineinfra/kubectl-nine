@@ -160,3 +160,22 @@ var NineToolPortProtocolList = map[string]string{
 	DefaultToolRedisName:     "redis",
 	DefaultToolZookeeperName: "",
 }
+
+// VolumeStatus represents status of a volume.
+type VolumeStatus string
+
+// Enum of VolumeStatus type.
+const (
+	VolumeStatusPending VolumeStatus = "Pending"
+	VolumeStatusReady   VolumeStatus = "Ready"
+)
+
+type NineInfraStoragePool string
+
+// Enum of NineInfraStoragePool type.
+const (
+	NineInfraStoragePoolDefault NineInfraStoragePool = "nineinfra-default"
+	NineInfraStoragePoolHigh    NineInfraStoragePool = "nineinfra-high"
+	NineInfraStoragePoolMedium  NineInfraStoragePool = "nineinfra-medium"
+	NineInfraStoragePoolLow     NineInfraStoragePool = "nineinfra-low"
+)

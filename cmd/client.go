@@ -2,6 +2,7 @@ package cmd
 
 import (
 	pgoperatorv1 "github.com/cloudnative-pg/client/clientset/versioned"
+	directpvv1beta1 "github.com/minio/directpv/apis/directpv.min.io/v1beta1"
 	nineinfrav1alpha1 "github.com/nineinfra/nineinfra/client/clientset/versioned"
 	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
@@ -109,6 +110,26 @@ func GetPGOperatorClient(path string) (*pgoperatorv1.Clientset, error) {
 	}
 
 	kubeClientset, err := pgoperatorv1.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+	return kubeClientset, nil
+}
+
+func GetDirectPVClient(path string) (*directpvv1beta1.DirectpvV1beta1Client, error) {
+	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+	if path != "" {
+		loadingRules.ExplicitPath = path
+	}
+	configOverrides := &clientcmd.ConfigOverrides{}
+	kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
+
+	config, err := kubeConfig.ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	kubeClientset, err := directpvv1beta1.NewForConfig(config)
 	if err != nil {
 		return nil, err
 	}

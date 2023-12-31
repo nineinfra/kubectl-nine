@@ -7,6 +7,7 @@ require (
 	github.com/cloudnative-pg/client v0.0.0-00010101000000-000000000000
 	github.com/cloudnative-pg/cloudnative-pg v1.21.1
 	github.com/manifoldco/promptui v0.9.0
+	github.com/minio/directpv/apis/directpv.min.io/v1beta1 v0.0.0-00010101000000-000000000000
 	github.com/nineinfra/nineinfra v0.4.4
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/pkg/errors v0.9.1
@@ -29,6 +30,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/emicklei/go-restful/v3 v3.11.0 // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
+	github.com/fatih/color v1.16.0 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/go-logr/logr v1.3.0 // indirect
 	github.com/go-logr/zapr v1.2.4 // indirect
@@ -50,6 +52,8 @@ require (
 	github.com/kubernetes-csi/external-snapshotter/client/v6 v6.3.0 // indirect
 	github.com/lib/pq v1.10.9 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
+	github.com/mattn/go-colorable v0.1.13 // indirect
+	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.9 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
 	github.com/moby/spdystream v0.2.0 // indirect
@@ -86,4 +90,8 @@ require (
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 
-replace github.com/cloudnative-pg/client => ./pkg/cloudnative-pg/client/
+replace (
+	github.com/cloudnative-pg/client => ./pkg/cloudnative-pg/client/
+	github.com/minio/directpv/apis/directpv.min.io/v1beta1 => ./pkg/minio/directpv/apis/directpv.min.io/v1beta1
+	github.com/minio/operator/apis/minio.min.io/v2 => ./pkg/minio/operator/apis/minio.min.io/v2
+)
