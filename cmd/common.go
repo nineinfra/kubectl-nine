@@ -7,12 +7,14 @@ import (
 	"fmt"
 	cnpgv1 "github.com/cloudnative-pg/cloudnative-pg/api/v1"
 	"github.com/manifoldco/promptui"
+	directpvv1beta1 "github.com/minio/directpv/apis/directpv.min.io/v1beta1"
 	nineinfrav1alpha1 "github.com/nineinfra/nineinfra/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/duration"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
@@ -482,7 +484,7 @@ func GetReleasedAndDeletePolicyPVList(clientset *kubernetes.Clientset, claimPref
 
 	var specificPVList []corev1.PersistentVolume
 	for _, pv := range pvList.Items {
-		if pv.Status.Phase == corev1.VolumeReleased &&
+		if (pv.Status.Phase == corev1.VolumeReleased || pv.Status.Phase == corev1.VolumeFailed) &&
 			pv.Spec.PersistentVolumeReclaimPolicy == corev1.PersistentVolumeReclaimDelete &&
 			pv.Spec.ClaimRef != nil && strings.Contains(pv.Spec.ClaimRef.Name, claimPrefix) {
 			specificPVList = append(specificPVList, pv)
@@ -490,4 +492,25 @@ func GetReleasedAndDeletePolicyPVList(clientset *kubernetes.Clientset, claimPref
 	}
 
 	return &corev1.PersistentVolumeList{Items: specificPVList}, nil
+}
+
+func GetReadyDirectPVVolumes(dpclient *directpvv1beta1.DirectpvV1beta1Client, ns string, podNamePrefix string) (*directpvv1beta1.DirectPVVolumeList, error) {
+	metav1.AddToGroupVersion(directpvv1beta1.Scheme, directpvv1beta1.SchemeGroupVersion)
+	utilruntime.Must(directpvv1beta1.AddToScheme(directpvv1beta1.Scheme))
+
+	selector := labels.Set(map[string]string{
+		"directpv.min.io/pod.namespace": ns,
+	}).AsSelector()
+	driectpvvolumelist, err := dpclient.DirectPVVolumes().List(context.TODO(), metav1.ListOptions{LabelSelector: selector.String()})
+	if err != nil {
+		return nil, err
+	}
+	var specificDirectPVList []directpvv1beta1.DirectPVVolume
+	for _, directpv := range driectpvvolumelist.Items {
+		if directpv.Status.Status == directpvv1beta1.VolumeStatusReady &&
+			strings.HasPrefix(directpv.Labels["directpv.min.io/pod.name"], podNamePrefix) {
+			specificDirectPVList = append(specificDirectPVList, directpv)
+		}
+	}
+	return &directpvv1beta1.DirectPVVolumeList{Items: specificDirectPVList}, nil
 }

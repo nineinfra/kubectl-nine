@@ -260,6 +260,29 @@ func (t *tpcdsCmd) stopRunningTPCDS(podName string) error {
 			}
 			fmt.Printf("Delete the pv %s of the TPC-DS successfully!\n", pv.Name)
 		}
+		path, _ := rootCmd.Flags().GetString(kubeconfig)
+		directpvClient, err := GetDirectPVClient(path)
+		if err != nil {
+			return err
+		}
+		directpvList, err := GetReadyDirectPVVolumes(directpvClient, t.tpcdsOptions.NS, DefaultTPCDSPrefix)
+		if err != nil {
+			return err
+		}
+		if directpvList != nil {
+			for _, directpv := range directpvList.Items {
+				directpv.SetFinalizers(nil)
+				_, err = directpvClient.DirectPVVolumes().Update(context.TODO(), &directpv, metav1.UpdateOptions{})
+				if err != nil {
+					return err
+				}
+				err = directpvClient.DirectPVVolumes().Delete(context.TODO(), directpv.Name, metav1.DeleteOptions{})
+				if err != nil && !k8serrors.IsNotFound(err) {
+					return err
+				}
+				fmt.Printf("Delete the directpv %s of the TPC-DS successfully!\n", directpv.Name)
+			}
+		}
 	}
 	return nil
 }
