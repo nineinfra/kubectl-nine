@@ -50,7 +50,7 @@ func New(_ genericiooptions.IOStreams) *cobra.Command {
 	rootCmd.AddCommand(newClusterShowCmd(rootCmd.OutOrStdout(), rootCmd.ErrOrStderr()))
 	rootCmd.AddCommand(newClusterSqlCmd(rootCmd.OutOrStdout(), rootCmd.ErrOrStderr()))
 	rootCmd.AddCommand(newClusterTPCDSCmd(rootCmd.OutOrStdout(), rootCmd.ErrOrStderr()))
-	rootCmd.AddCommand(newDiskCmd(rootCmd.OutOrStdout(), rootCmd.ErrOrStderr()))
+	rootCmd.AddCommand(newStorageCmd(rootCmd.OutOrStdout(), rootCmd.ErrOrStderr()))
 	rootCmd.AddCommand(newToolsCmd(rootCmd.OutOrStdout(), rootCmd.ErrOrStderr()))
 	return rootCmd
 }

@@ -161,15 +161,6 @@ var NineToolPortProtocolList = map[string]string{
 	DefaultToolZookeeperName: "",
 }
 
-// VolumeStatus represents status of a volume.
-type VolumeStatus string
-
-// Enum of VolumeStatus type.
-const (
-	VolumeStatusPending VolumeStatus = "Pending"
-	VolumeStatusReady   VolumeStatus = "Ready"
-)
-
 type NineInfraStoragePool string
 
 // Enum of NineInfraStoragePool type.
