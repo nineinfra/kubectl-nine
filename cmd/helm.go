@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -77,12 +78,12 @@ func HelmInstall(name string, repoName string, chart string, version string, nam
 	if flags == "" {
 		_, errput, err := runCommand("helm", "install", name, chart, "--version", version, "-n", namespace)
 		if err != nil && !strings.Contains(errput, "in use") {
-			return err
+			return errors.New(errput)
 		}
 	} else {
 		_, errput, err := runCommand("helm", "install", name, chart, "--version", version, "-n", namespace, flags)
 		if err != nil && !strings.Contains(errput, "in use") {
-			return err
+			return errors.New(errput)
 		}
 	}
 	fmt.Printf("Install %s successfully!\n", name)
@@ -98,7 +99,7 @@ func HelmInstallWithParameters(name string, repoName string, chart string, versi
 	args = append(args, parameters...)
 	_, errput, err := runCommand("helm", args...)
 	if err != nil && !strings.Contains(errput, "in use") {
-		return err
+		return errors.New(errput)
 	}
 
 	fmt.Printf("Install %s successfully!\n", name)
@@ -108,7 +109,7 @@ func HelmInstallWithParameters(name string, repoName string, chart string, versi
 func HelmUnInstall(name string, namespace string, flags string) error {
 	_, errput, err := runCommand("helm", "uninstall", name, "-n", namespace, flags)
 	if err != nil && !strings.Contains(errput, "not found") {
-		return err
+		return errors.New(errput)
 	}
 	fmt.Printf("Uninstall %s successfully!\n", name)
 	return nil

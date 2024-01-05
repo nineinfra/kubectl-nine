@@ -2,14 +2,13 @@ package cmd
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 	"io"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/klog/v2"
 	"os"
 	"strings"
 )
@@ -70,7 +69,6 @@ func newToolsCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			err := c.run()
 			if err != nil {
-				klog.Warning(err)
 				return err
 			}
 			return nil
@@ -79,13 +77,13 @@ func newToolsCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	cmd = DisableHelp(cmd)
 	f := cmd.Flags()
 	f.StringSliceVarP(&c.toolkitArgs, "toolkit", "t", c.toolkitArgs, "toolkit list for the NineCluster")
-	f.IntVar(&DefaultToolNifiSvcNodePort, "nifinodeport", 31333, "nodePort value for nifi https")
-	f.StringVar(&DefaultToolAirflowSvcType, "airflowsvctype", "NodePort", "service type for airflow ui")
-	f.StringVar(&DefaultToolSupersetSvcType, "supersetsvctype", "NodePort", "service type for superset ui")
-	f.StringVar(&DefaultToolNifiSvcType, "nifisvctype", "NodePort", "service type for nifi ui")
-	f.StringVar(&DefaultToolAirflowRepository, "airflowrepo", "nineinfra/airflow", "airflow image repository")
-	f.StringVar(&DefaultToolAirflowTag, "airflowtag", "2.7.3", "airflow image tag")
-	f.StringVarP(&DefaultStorageClass, "storageclass", "s", "directpv-min-io", "storageclass fo tools")
+	f.IntVar(&DefaultToolNifiSvcNodePort, "nifi-nodeport", 31333, "nodePort value for nifi https")
+	f.StringVar(&DefaultToolAirflowSvcType, "airflow-svctype", "NodePort", "service type for airflow ui")
+	f.StringVar(&DefaultToolSupersetSvcType, "superset-svctype", "NodePort", "service type for superset ui")
+	f.StringVar(&DefaultToolNifiSvcType, "nifi-svctype", "NodePort", "service type for nifi ui")
+	f.StringVar(&DefaultToolAirflowRepository, "airflow-repo", "nineinfra/airflow", "airflow image repository")
+	f.StringVar(&DefaultToolAirflowTag, "airflow-tag", "2.7.3", "airflow image tag")
+	f.StringVarP(&DefaultStorageClass, "storage-pool", "s", "nineinfra-default", "storage pool fo tools")
 	f.StringVarP(&c.ns, "namespace", "n", "", "k8s namespace for tools")
 	f.BoolVar(&DEBUG, "debug", false, "print debug information")
 	return cmd
@@ -246,22 +244,17 @@ func (t *toolsCmd) genRedisParameters(relName string, parameters []string) []str
 }
 
 func (t *toolsCmd) createDatabase(tool string) error {
-	svcName := t.nineName + DefaultPGRWSVCNameSuffix
-	path, _ := rootCmd.Flags().GetString(kubeconfig)
-	client, err := GetKubeClient(path)
+	pgIP, pgPort := GetPostgresIpAndPort(t.nineName, t.ns)
+	if pgIP == "" || pgPort == 0 {
+		return errors.New("invalid Postgres Access Info")
+	}
+	connStr := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", pgIP, pgPort, "postgres", "", "")
+	db, err := sql.Open("postgres", connStr)
 	if err != nil {
+		fmt.Printf("Error:%v\n", err)
 		return err
 	}
-	svc, err := client.CoreV1().Services(t.ns).Get(context.TODO(), svcName, metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
-	selector := labels.Set(svc.Spec.Selector).AsSelector()
-	podList, err := client.CoreV1().Pods(t.ns).List(context.TODO(), metav1.ListOptions{LabelSelector: selector.String()})
-	if err != nil {
-		return err
-	}
-	pgRWPodName := podList.Items[0].Name
+	defer db.Close()
 	var dbUser, dbName, dbPWD string
 	switch tool {
 	case DefaultToolAirflowName:
@@ -273,18 +266,60 @@ func (t *toolsCmd) createDatabase(tool string) error {
 		dbPWD = DefaultToolSupersetDBPwd
 		dbName = DefaultToolSupersetName
 	}
-	pSqlCreateUserCmd := []string{"/usr/bin/psql", "-c", fmt.Sprintf("CREATE USER %s WITH PASSWORD '%s'", dbUser, dbPWD)}
-	_, err = runExecCommand(pgRWPodName, t.ns, false, pSqlCreateUserCmd)
+
+	_, err = db.Exec("CREATE USER " + dbUser + " WITH PASSWORD '" + dbPWD + "'")
 	if err != nil && !strings.Contains(err.Error(), "already exists") {
+		fmt.Printf("Error:%v\n", err)
 		return err
 	}
-	pSqlCreateDatabaseCmd := []string{"/usr/bin/psql", "-c", fmt.Sprintf("CREATE DATABASE %s OWNER %s", dbName, dbUser)}
-	_, err = runExecCommand(pgRWPodName, t.ns, false, pSqlCreateDatabaseCmd)
+	_, err = db.Exec("CREATE DATABASE " + dbName + " WITH OWNER " + dbUser)
 	if err != nil && !strings.Contains(err.Error(), "already exists") {
+		fmt.Printf("Error:%v\n", err)
 		return err
 	}
 	return nil
 }
+
+//func (t *toolsCmd) createDatabase(tool string) error {
+//	svcName := t.nineName + DefaultPGRWSVCNameSuffix
+//	path, _ := rootCmd.Flags().GetString(kubeconfig)
+//	client, err := GetKubeClient(path)
+//	if err != nil {
+//		return err
+//	}
+//	svc, err := client.CoreV1().Services(t.ns).Get(context.TODO(), svcName, metav1.GetOptions{})
+//	if err != nil {
+//		return err
+//	}
+//	selector := labels.Set(svc.Spec.Selector).AsSelector()
+//	podList, err := client.CoreV1().Pods(t.ns).List(context.TODO(), metav1.ListOptions{LabelSelector: selector.String()})
+//	if err != nil {
+//		return err
+//	}
+//	pgRWPodName := podList.Items[0].Name
+//	var dbUser, dbName, dbPWD string
+//	switch tool {
+//	case DefaultToolAirflowName:
+//		dbUser = DefaultToolAirflowDBUser
+//		dbPWD = DefaultToolAirflowDBPwd
+//		dbName = DefaultToolAirflowName
+//	case DefaultToolSupersetName:
+//		dbUser = DefaultToolSupersetDBUser
+//		dbPWD = DefaultToolSupersetDBPwd
+//		dbName = DefaultToolSupersetName
+//	}
+//	pSqlCreateUserCmd := []string{"/usr/bin/psql", "-c", fmt.Sprintf("CREATE USER %s WITH PASSWORD '%s'", dbUser, dbPWD)}
+//	_, err = runExecCommand(pgRWPodName, t.ns, false, pSqlCreateUserCmd)
+//	if err != nil && !strings.Contains(err.Error(), "already exists") {
+//		return err
+//	}
+//	pSqlCreateDatabaseCmd := []string{"/usr/bin/psql", "-c", fmt.Sprintf("CREATE DATABASE %s OWNER %s", dbName, dbUser)}
+//	_, err = runExecCommand(pgRWPodName, t.ns, false, pSqlCreateDatabaseCmd)
+//	if err != nil && !strings.Contains(err.Error(), "already exists") {
+//		return err
+//	}
+//	return nil
+//}
 
 func (t *toolsCmd) installRedis(parameters []string) error {
 	relName := DefaultToolsNamePrefix + DefaultToolRedisName
