@@ -18,6 +18,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
+	"net"
+	"net/url"
 	"os"
 	"os/exec"
 	"regexp"
@@ -368,9 +370,22 @@ func GiveSuggestionsByError(err error) string {
 		"Could you please submit an issue on GitHub to help me improve my knowledge base? Thank you!")
 }
 
-func GetIpFromKubeHost(host string) string {
+func GetIpFromKubeHost(host string) (string, error) {
 	re := regexp.MustCompile(`\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b`)
-	return re.FindString(host)
+	hostIp := re.FindString(host)
+	if hostIp == "" {
+		parsedURL, err := url.Parse(host)
+		if err != nil {
+			return "", err
+		}
+		hostName := parsedURL.Hostname()
+		ips, err := net.LookupHost(hostName)
+		if err != nil {
+			return "", err
+		}
+		hostIp = ips[0]
+	}
+	return hostIp, nil
 }
 
 func GetSvcAccessInfo(svcName string, portName string, ns string) (string, int32) {
@@ -394,7 +409,14 @@ func GetSvcAccessInfo(svcName string, portName string, ns string) (string, int32
 			}
 		}
 	case corev1.ServiceTypeNodePort:
-		accessIP = GetIpFromKubeHost(config.Host)
+		if DefaultAccessHost != "" {
+			accessIP = DefaultAccessHost
+		} else {
+			accessIP, err = GetIpFromKubeHost(config.Host)
+			if err != nil {
+				fmt.Printf("cannot get host ip for the out cluster access,err:%s,you can specify the host ip through --access-host\n", err.Error())
+			}
+		}
 		for _, v := range svc.Spec.Ports {
 			if v.Name == portName {
 				accessPort = v.NodePort

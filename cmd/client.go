@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	pgoperatorv1 "github.com/cloudnative-pg/client/clientset/versioned"
 	directpvv1beta1 "github.com/minio/directpv/apis/directpv.min.io/v1beta1"
 	nineinfrav1alpha1 "github.com/nineinfra/nineinfra/client/clientset/versioned"
@@ -62,7 +63,7 @@ func GetKubeConfig() (*restclient.Config, error) {
 	return config, nil
 }
 
-func GetKubeHost(path string) string {
+func GetKubeHost(path string) (string, error) {
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 	if path != "" {
 		loadingRules.ExplicitPath = path
@@ -71,9 +72,14 @@ func GetKubeHost(path string) string {
 	kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
 	config, err := kubeConfig.ClientConfig()
 	if err != nil {
-		return ""
+		fmt.Printf("Error:%v\n", err)
+		return "", err
 	}
-	return GetIpFromKubeHost(config.Host)
+	kubeHostIp, err := GetIpFromKubeHost(config.Host)
+	if kubeHostIp == "" {
+		return "", err
+	}
+	return kubeHostIp, nil
 }
 
 func GetNineInfraClient(path string) (*nineinfrav1alpha1.Clientset, error) {
