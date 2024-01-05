@@ -17,44 +17,14 @@ import (
 
 const (
 	storageDesc    = `'storage' command manages the physical storages on the k8s for the NineCluster`
-	storageExample = `1. Discover drives
-   $ kubectl nine storage discover
+	storageExample = `1. Create storage pool
+   $ kubectl nine storage --command=create --nodes=node{1...4} --drives=sd{a...f} --storage-pool=nineinfra-high --dangerous
 
-2. Discover drives from a node
-   $ kubectl nine storage discover --nodes=node1
+2. Delete storage pool
+   $ kubectl nine storage -c=delete --storage-pool=nineinfra-high
 
-3. Discover a drive from all nodes
-   $ kubectl nine storage discover --drives=nvme1n1
-
-4. Discover all drives from all nodes (including unavailable)
-   $ kubectl nine storage discover --all
-
-5. Discover specific drives from specific nodes
-   $ kubectl nine storage discover --nodes=node{1...4} --drives=sd{a...f}
-
-6. Initialize the drives
-   $ kubectl nine storage init drives.yaml --dangerous
-
-7. Remove an unused drive from all nodes
-   $ kubectl nine storage remove --drives=nvme1n1
-
-8. Remove all unused drives from a node
-   $ kubectl nine storage remove --nodes=node1
-
-9. Remove specific unused drives from specific nodes
-   $ kubectl nine storage remove --nodes=node{1...4} --drives=sd{a...f}
-
-10. Remove all unused drives from all nodes
-   $ kubectl nine storage remove --all
-
-11. Remove drives are in 'error' status
-   $ kubectl nine storage remove --status=error
-
-12. List drives
-   $ kubectl nine storage list drives
-
-13. List volumes
-   $ kubectl nine storage list volumes`
+3. List storage pools
+   $ kubectl nine storage -c=list`
 )
 
 // DriveStatus denotes drive status
@@ -92,9 +62,10 @@ var driveStatusValues = []string{
 }
 
 var (
-	outputFile      = "drives.yaml"
-	nodeListTimeout = 2 * time.Minute
-	subCommandList  = "discover,init,remove,list,create,delete"
+	outputFile            = "drives.yaml"
+	nodeListTimeout       = 2 * time.Minute
+	subCommandList        = "create,delete,list"
+	storagePoolsSupported = "nineinfra-default,nineinfra-high,nineinfra-medium,nineinfra-low"
 )
 
 type storageCmd struct {
@@ -117,7 +88,7 @@ func newStorageCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	c := &storageCmd{out: out, errOut: errOut}
 
 	cmd := &cobra.Command{
-		Use:     "storage <SUBCOMMAND>",
+		Use:     "storage",
 		Short:   "Manage the physical storages on the k8s for the NineCluster",
 		Long:    storageDesc,
 		Example: storageExample,
@@ -136,9 +107,10 @@ func newStorageCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	f := cmd.Flags()
 	f.StringSliceVarP(&c.nodesArgs, "nodes", "n", c.nodesArgs, "discover drives from given nodes; supports ellipses pattern e.g. node{1...10}")
 	f.StringSliceVarP(&c.drivesArgs, "drives", "d", c.drivesArgs, "discover drives by given names; supports ellipses pattern e.g. sd{a...z}")
+	f.StringVarP(&c.subCommand, "command", "c", "", fmt.Sprintf("command for tools,[%s] are supported now", toolsSubCommandList))
 	f.BoolVar(&c.allFlag, "all", c.allFlag, "If present, include non-formattable devices in the display")
 	f.StringVar(&outputFile, "output-file", outputFile, "output file to write the init config")
-	f.StringVar(&c.storagePool, "storage-pool", "nineinfra-default", "specify the storage pool name,support [nineinfra-default,nineinfra-high,nineinfra-medium,nineinfra-low]")
+	f.StringVar(&c.storagePool, "storage-pool", "nineinfra-default", fmt.Sprintf("specify the storage pool name,support [%s]", storagePoolsSupported))
 	f.DurationVar(&nodeListTimeout, "timeout", nodeListTimeout, "specify timeout for the discovery process")
 	f.BoolVar(&c.dangerousFlag, "dangerous", c.dangerousFlag, "Perform initialization of drives which will permanently erase existing data")
 	f.StringSliceVar(&c.driveStatusArgs, "status", c.driveStatusArgs, fmt.Sprintf("%v; one of: %v", "If present, select drives by drive status", strings.Join(driveStatusValues, "|")))
@@ -149,39 +121,17 @@ func newStorageCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 }
 
 func (d *storageCmd) validate(args []string) error {
-	if len(args) < 1 {
-		return fmt.Errorf("not enough parameters")
-	}
-	d.subCommand = args[0]
 	if !strings.Contains(subCommandList, d.subCommand) {
 		return fmt.Errorf("unsupported subcommand %s, only %s supported", d.subCommand, subCommandList)
 	}
 	switch d.subCommand {
-	case "init":
-		if len(args) != 2 {
-			return fmt.Errorf("please provide the input file")
-		}
-		d.subArg = args[1]
-	case "discover":
-		if len(args) != 1 {
-			return fmt.Errorf("too many input args")
-		}
-	case "remove":
-		if len(args) != 1 {
-			return fmt.Errorf("too many input args")
-		}
-	case "list":
-		if len(args) != 2 {
-			return fmt.Errorf("please provide arg for list,support[drives,volumes]")
-		}
-		d.subArg = args[1]
 	case "create":
-		storagePool := NineInfraStoragePool(d.storagePool)
-		if !(storagePool == NineInfraStoragePoolDefault ||
-			storagePool == NineInfraStoragePoolHigh ||
-			storagePool == NineInfraStoragePoolMedium ||
-			storagePool == NineInfraStoragePoolLow) {
-			return fmt.Errorf("please provide valid storage pool name,support[%s,%s,%s,%s]", NineInfraStoragePoolDefault, NineInfraStoragePoolHigh, NineInfraStoragePoolMedium, NineInfraStoragePoolLow)
+		if !strings.Contains(storagePoolsSupported, d.storagePool) {
+			return fmt.Errorf("please provide valid storage pool name:%s,support[%s]", d.storagePool, storagePoolsSupported)
+		}
+	case "delelte":
+		if !strings.Contains(storagePoolsSupported, d.storagePool) {
+			return fmt.Errorf("please provide valid storage pool name:%s,support[%s]", d.storagePool, storagePoolsSupported)
 		}
 	}
 	return nil
@@ -218,7 +168,7 @@ func (d *storageCmd) addFlags(parameters []string, subCommand string) []string {
 	return parameters
 }
 
-func (d *storageCmd) executeDiskCommand(parameters []string) error {
+func (d *storageCmd) executeKubectlCommand(parameters []string) error {
 	cmd := exec.Command("kubectl", parameters...)
 	stdoutReader, _ := cmd.StdoutPipe()
 	stdoutScanner := bufio.NewScanner(stdoutReader)
@@ -247,7 +197,7 @@ func (d *storageCmd) executeDiskCommand(parameters []string) error {
 
 func (d *storageCmd) executeDiskCmd(parameters []string, subCommand string) error {
 	parameters = d.addFlags(parameters, subCommand)
-	return d.executeDiskCommand(parameters)
+	return d.executeKubectlCommand(parameters)
 }
 
 func (d *storageCmd) createStorageClass() error {
@@ -334,6 +284,17 @@ func (d *storageCmd) runCreateCmd() error {
 	return nil
 }
 
+func (d *storageCmd) runListCmd() error {
+	var parameters []string
+
+	parameters = []string{"get", "storageclass"}
+	err := d.executeKubectlCommand(parameters)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (d *storageCmd) run(_ []string) error {
 	switch d.subCommand {
 	case "create":
@@ -342,6 +303,8 @@ func (d *storageCmd) run(_ []string) error {
 			return err
 		}
 	case "delete":
+	case "list":
+		d.runListCmd()
 	default:
 		var parameters []string
 		if d.subArg != "" {
@@ -352,7 +315,7 @@ func (d *storageCmd) run(_ []string) error {
 
 		parameters = d.addFlags(parameters, d.subCommand)
 
-		err := d.executeDiskCommand(parameters)
+		err := d.executeKubectlCommand(parameters)
 		if err != nil {
 			return err
 		}

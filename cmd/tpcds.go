@@ -119,6 +119,7 @@ func (t *tpcdsCmd) validate(args []string) error {
 		return fmt.Errorf("unsupported deploy mod %s, only %s supported", t.tpcdsOptions.DeployMode, ValidSparkDeployModeList)
 	}
 	t.tpcdsOptions.Name = args[0]
+
 	return ValidateClusterArgs("tpcds", args)
 }
 

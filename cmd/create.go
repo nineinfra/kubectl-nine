@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 	"io"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"strings"
 )
 
 const (
@@ -15,11 +16,16 @@ const (
 	createExample = ` kubectl nine create c1 --datavolume 16 --namespace c1-ns`
 )
 
+var (
+	olapsSupported = "doris"
+)
+
 // ClusterOptions encapsulates the CLI options for a NineCluster
 type ClusterOptions struct {
 	Name       string
 	NS         string
 	DataVolume int
+	Olap       string
 }
 
 type createCmd struct {
@@ -33,6 +39,9 @@ type createCmd struct {
 func (t ClusterOptions) Validate() error {
 	if t.DataVolume <= 0 {
 		return errors.New("--datavolume flag is required")
+	}
+	if t.Olap != "" && !strings.Contains(olapsSupported, t.Olap) {
+		return errors.New(fmt.Sprintf("invalid olap:%s,support [%s]", t.Olap, olapsSupported))
 	}
 	return nil
 }
@@ -58,7 +67,8 @@ func newClusterCreateCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	}
 	cmd = DisableHelp(cmd)
 	f := cmd.Flags()
-	f.IntVarP(&c.clusterOpts.DataVolume, "datavolume", "v", 32, "total raw data volumes of the ninecluster,default uint Gi, e.g. 16")
+	f.IntVarP(&c.clusterOpts.DataVolume, "data-volume", "v", 32, "total raw data volumes of the ninecluster,default uint Gi, e.g. 16")
+	f.StringVarP(&c.clusterOpts.Olap, "olap", "a", "", fmt.Sprintf("add olap to the ninecluster,support [%s]", olapsSupported))
 	f.StringVarP(&c.clusterOpts.NS, "namespace", "n", "", "k8s namespace for this ninecluster")
 	return cmd
 }
@@ -91,7 +101,10 @@ func (c *createCmd) run(_ []string) error {
 	if err != nil {
 		return err
 	}
-
+	var features = map[string]string{}
+	if c.clusterOpts.Olap != "" {
+		features[FeaturesOlapKey] = c.clusterOpts.Olap
+	}
 	desiredNineCluster := &nineinfrav1alpha1.NineCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      c.clusterOpts.Name,
@@ -99,6 +112,7 @@ func (c *createCmd) run(_ []string) error {
 		},
 		Spec: nineinfrav1alpha1.NineClusterSpec{
 			DataVolume: c.clusterOpts.DataVolume,
+			Features:   features,
 		},
 	}
 

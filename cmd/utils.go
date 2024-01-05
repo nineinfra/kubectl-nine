@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	"net"
 	"regexp"
 	"strings"
 )
@@ -57,6 +58,11 @@ func ValidateClusterArgs(cmd string, args []string) error {
 	}
 	if args[0] == "" {
 		return fmt.Errorf("provide the name of the cluster, e.g. 'kubectl nine %s cluster1 -n c1-ns flags'", cmd)
+	}
+	if DefaultAccessHost != "" {
+		if net.ParseIP(DefaultAccessHost) == nil {
+			return fmt.Errorf("invalid access host %s", DefaultAccessHost)
+		}
 	}
 	return CheckValidClusterName(args[0])
 }
