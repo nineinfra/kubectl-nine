@@ -10,7 +10,6 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/klog/v2"
 	"os/exec"
 	"strings"
 	"time"
@@ -128,7 +127,6 @@ func newStorageCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			err := c.run(args)
 			if err != nil {
-				klog.Warning(err)
 				return err
 			}
 			return nil
@@ -238,12 +236,10 @@ func (d *storageCmd) executeDiskCommand(parameters []string) error {
 	}()
 	err := cmd.Start()
 	if err != nil {
-		fmt.Printf("Error: %v \n", err)
 		return err
 	}
 	err = cmd.Wait()
 	if err != nil {
-		fmt.Printf("Error: %v \n", err)
 		return err
 	}
 	return nil

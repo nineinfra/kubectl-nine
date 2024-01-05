@@ -14,6 +14,7 @@ const (
 )
 const (
 	DefaultPGRWSVCNameSuffix             = DefaultNineSuffix + "-pg-rw"
+	DefaultPGRWPortName                  = "postgres"
 	DefaultToolsNamePrefix               = "nineinfra-"
 	DefaultRedisSVCName                  = DefaultToolsNamePrefix + "redis"
 	DefaultToolAirflowDBUser             = "airflow"
@@ -58,7 +59,7 @@ var (
 	DefaultToolAirflowSvcType    = "NodePort"
 	DefaultToolAirflowRepository = "nineinfra/airflow"
 	DefaultToolAirflowTag        = "2.7.3"
-	DefaultStorageClass          = "directpv-min-io"
+	DefaultStorageClass          = "nineinfra-default"
 	DefaultToolNifiSideCarTag    = "1.36.1"
 )
 

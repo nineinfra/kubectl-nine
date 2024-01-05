@@ -34,6 +34,7 @@ const (
 var Err2Suggestions = map[string]string{
 	"connection timed out":        "If you run the nine out of the k8s? or if the status of the NineCluster is not ready?",
 	"the TPC-DS is already exist": "You can stop it by execute the nine TPC-DS stop command",
+	"No matching resources found": "You can create this resource first",
 }
 
 func runCommand(command string, args ...string) (string, string, error) {
@@ -77,12 +78,12 @@ func runExecCommand(pdName string, namespace string, tty bool, cmd []string) (st
 	if err != nil {
 		return "", err
 	}
-	//defer func(Stdin *os.File) {
-	//	err := Stdin.Close()
-	//	if err != nil {
-	//		fmt.Printf("Error: %v \n", err)
-	//	}
-	//}(os.Stdin)
+	defer func(Stdin *os.File) {
+		err := Stdin.Close()
+		if err != nil {
+			fmt.Printf("Error: %v \n", err)
+		}
+	}(os.Stdin)
 	if !tty {
 		var stdout bytes.Buffer
 		var stderr bytes.Buffer
@@ -409,6 +410,14 @@ func GenThriftSvcName(name string) string {
 
 func GenThriftServiceAccountName(name string) string {
 	return name + DefaultNineSuffix + "-kyuubi"
+}
+
+func GenPostgresSvcName(name string) string {
+	return name + DefaultPGRWSVCNameSuffix
+}
+
+func GetPostgresIpAndPort(name string, ns string) (string, int32) {
+	return GetSvcAccessInfo(GenPostgresSvcName(name), DefaultPGRWPortName, ns)
 }
 
 func GetThriftIpAndPort(name string, ns string) (string, int32) {
