@@ -102,6 +102,7 @@ func newClusterTPCDSCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	f.IntVar(&c.tpcdsOptions.ShuffleDiskSize, "shuffle-disksize", 250, "shuffle disk size of executor")
 	f.IntVar(&c.tpcdsOptions.ShuffleDisks, "shuffle-disks", 1, "shuffle disks of executor")
 	f.StringVar(&c.tpcdsOptions.DeployMode, "deploy-mode", "client", "deploy mode of spark-submit")
+	f.StringVar(&DefaultAccessHost, "access-host", "", "access host ip for out cluster access,such as web access")
 	f.IntVar(&c.tpcdsOptions.SparkUI, "spark-ui", DefaultSparkUINodePort, "nodeport of spark UI")
 	f.BoolVar(&c.tpcdsOptions.Stop, "stop", false, "stop and clean the running TPC-DS")
 	f.BoolVar(&c.tpcdsOptions.Force, "force", false, "force to stop and clean the running TPC-DS")

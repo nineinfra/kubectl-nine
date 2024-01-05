@@ -77,6 +77,7 @@ func newToolsCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	cmd = DisableHelp(cmd)
 	f := cmd.Flags()
 	f.StringSliceVarP(&c.toolkitArgs, "toolkit", "t", c.toolkitArgs, "toolkit list for the NineCluster")
+	f.StringVar(&DefaultAccessHost, "access-host", "", "access host ip for out cluster access,such as web access")
 	f.IntVar(&DefaultToolNifiSvcNodePort, "nifi-nodeport", 31333, "nodePort value for nifi https")
 	f.StringVar(&DefaultToolAirflowSvcType, "airflow-svctype", "NodePort", "service type for airflow ui")
 	f.StringVar(&DefaultToolSupersetSvcType, "superset-svctype", "NodePort", "service type for superset ui")
@@ -197,8 +198,17 @@ func (t *toolsCmd) genZookeeperParameters(relName string, parameters []string) [
 }
 
 func (t *toolsCmd) genNifiParameters(relName string, parameters []string) []string {
-	path, _ := rootCmd.Flags().GetString(kubeconfig)
-	nodePortIp := GetKubeHost(path)
+	var nodePortIp string
+	if DefaultAccessHost != "" {
+		nodePortIp = DefaultAccessHost
+	} else {
+		path, _ := rootCmd.Flags().GetString(kubeconfig)
+		var err error
+		nodePortIp, err = GetKubeHost(path)
+		if err != nil {
+			fmt.Printf("cannot get host ip for the nifi web access,err:%s,you can specify the host ip through --access-host\n", err.Error())
+		}
+	}
 	params := append(parameters, []string{"--set", "fullnameOverride=" + relName}...)
 	params = append(params, []string{"--set", "auth.enabled=false"}...)
 	params = append(params, []string{"--set", fmt.Sprintf("master.persistence.storageClass=%s", DefaultStorageClass)}...)

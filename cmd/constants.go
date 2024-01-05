@@ -61,6 +61,7 @@ var (
 	DefaultToolAirflowTag        = "2.7.3"
 	DefaultStorageClass          = "nineinfra-default"
 	DefaultToolNifiSideCarTag    = "1.36.1"
+	DefaultAccessHost            = ""
 )
 
 var DefaultChartList = map[string]string{

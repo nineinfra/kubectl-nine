@@ -67,6 +67,7 @@ func newClusterSqlCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	cmd = DisableHelp(cmd)
 	f := cmd.Flags()
 	f.StringVarP(&c.sqlOpts.NS, "namespace", "n", "", "k8s namespace for this ninecluster")
+	f.StringVar(&DefaultAccessHost, "access-host", "", "access host ip for out cluster access,such as web access")
 	f.BoolVar(&c.sqlOpts.TTY, "tty", false, "interactive SQL operation")
 	f.BoolVar(&c.sqlOpts.Silent, "silent", true, "be more silent")
 	f.StringVarP(&c.sqlOpts.Statement, "statement", "s", "show databases", "simple sql statement")
