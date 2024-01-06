@@ -45,6 +45,9 @@ const (
 	DefaultSparkUIPort       = 4040
 	DefaultSparkUIName       = "spark-ui"
 )
+const (
+	FeaturesOlapKey = "olap"
+)
 
 var (
 	DefaultToolSupersetSecretFile       = "secret"

@@ -9,6 +9,7 @@ import (
 	"gopkg.in/yaml.v2"
 	"io"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"net"
 	"os"
 	"strings"
 )
@@ -16,19 +17,19 @@ import (
 const (
 	toolsDesc    = `'tools' command manages the lifecycle of the toolkit for the NineCluster`
 	toolsExample = `1. Install tools for the NineCluster
-   $ kubectl nine tools install --namespace=ns
+   $ kubectl nine tools --command=install --namespace=ns
 
 2. Uninstall tools from a namespace
-   $ kubectl nine tools uninstall --namespace=ns
+   $ kubectl nine tools --command=uninstall --namespace=ns
 
 3. Install some of the tools for a NineCluster
-   $ kubectl nine tools install --toolkit=superset,airflow,nifi --namespace=ns
+   $ kubectl nine tools --command=install --toolkit=superset,airflow,nifi --namespace=ns
 
 4. Uninstall some of the tools from a namespace
-   $ kubectl nine tools uninstall --toolkit=superset,airflow --namespace=ns
+   $ kubectl nine tools --command=uninstall --toolkit=superset,airflow --namespace=ns
 
 5. List tools
-   $ kubectl nine tools list --namespace=ns`
+   $ kubectl nine tools -c=list -n=ns`
 )
 
 var (
@@ -43,6 +44,7 @@ type toolsCmd struct {
 	ns          string
 	nineName    string
 	toolkitArgs []string // --nodes flag
+	deletePVC   bool
 }
 
 type DatabasesConnection struct {
@@ -59,7 +61,7 @@ func newToolsCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	c := &toolsCmd{out: out, errOut: errOut}
 
 	cmd := &cobra.Command{
-		Use:     "tools <SUBCOMMAND>",
+		Use:     "tools",
 		Short:   "Manage the lifecycle of the tools for the NineCluster",
 		Long:    toolsDesc,
 		Example: toolsExample,
@@ -76,8 +78,9 @@ func newToolsCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	}
 	cmd = DisableHelp(cmd)
 	f := cmd.Flags()
-	f.StringSliceVarP(&c.toolkitArgs, "toolkit", "t", c.toolkitArgs, "toolkit list for the NineCluster")
+	f.StringSliceVarP(&c.toolkitArgs, "toolkit", "t", strings.Split(toolsSupported, ","), "toolkit list for the NineCluster")
 	f.StringVar(&DefaultAccessHost, "access-host", "", "access host ip for out cluster access,such as web access")
+	f.StringVarP(&c.subCommand, "command", "c", "", fmt.Sprintf("command for tools,%s are supported now", toolsSubCommandList))
 	f.IntVar(&DefaultToolNifiSvcNodePort, "nifi-nodeport", 31333, "nodePort value for nifi https")
 	f.StringVar(&DefaultToolAirflowSvcType, "airflow-svctype", "NodePort", "service type for airflow ui")
 	f.StringVar(&DefaultToolSupersetSvcType, "superset-svctype", "NodePort", "service type for superset ui")
@@ -85,16 +88,17 @@ func newToolsCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	f.StringVar(&DefaultToolAirflowRepository, "airflow-repo", "nineinfra/airflow", "airflow image repository")
 	f.StringVar(&DefaultToolAirflowTag, "airflow-tag", "2.7.3", "airflow image tag")
 	f.StringVarP(&DefaultStorageClass, "storage-pool", "s", "nineinfra-default", "storage pool fo tools")
+	f.BoolVar(&c.deletePVC, "delete-pvc", false, "delete the ninecluster tools pvcs")
 	f.StringVarP(&c.ns, "namespace", "n", "", "k8s namespace for tools")
 	f.BoolVar(&DEBUG, "debug", false, "print debug information")
 	return cmd
 }
 
 func (t *toolsCmd) validate(args []string) error {
-	if len(args) < 1 {
-		return fmt.Errorf("not enough parameters")
-	}
-	t.subCommand = args[0]
+	//if len(args) < 1 {
+	//	return fmt.Errorf("not enough parameters")
+	//}
+	//t.subCommand = args[0]
 	if !strings.Contains(toolsSubCommandList, t.subCommand) {
 		return fmt.Errorf("unsupported subcommand %s, only %s supported", t.subCommand, toolsSubCommandList)
 	}
@@ -102,6 +106,28 @@ func (t *toolsCmd) validate(args []string) error {
 		if !strings.Contains(toolsSupported, v) {
 			return fmt.Errorf("unsupported toolkit %s, only %s supported", v, toolsSupported)
 		}
+	}
+	if DefaultAccessHost != "" {
+		if net.ParseIP(DefaultAccessHost) == nil {
+			return fmt.Errorf("invalid access host %s", DefaultAccessHost)
+		}
+	}
+	return nil
+}
+
+func (t *toolsCmd) deleteToolsPVC(name string, namespace string) error {
+	if name == "" || namespace == "" {
+		return nil
+	}
+	path, _ := rootCmd.Flags().GetString(kubeconfig)
+	c, err := GetKubeClient(path)
+	if err != nil {
+		return err
+	}
+
+	err = c.CoreV1().PersistentVolumeClaims(namespace).DeleteCollection(context.TODO(), metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: constructPVCLabel(name)})
+	if err != nil {
+		return err
 	}
 	return nil
 }
@@ -289,47 +315,6 @@ func (t *toolsCmd) createDatabase(tool string) error {
 	}
 	return nil
 }
-
-//func (t *toolsCmd) createDatabase(tool string) error {
-//	svcName := t.nineName + DefaultPGRWSVCNameSuffix
-//	path, _ := rootCmd.Flags().GetString(kubeconfig)
-//	client, err := GetKubeClient(path)
-//	if err != nil {
-//		return err
-//	}
-//	svc, err := client.CoreV1().Services(t.ns).Get(context.TODO(), svcName, metav1.GetOptions{})
-//	if err != nil {
-//		return err
-//	}
-//	selector := labels.Set(svc.Spec.Selector).AsSelector()
-//	podList, err := client.CoreV1().Pods(t.ns).List(context.TODO(), metav1.ListOptions{LabelSelector: selector.String()})
-//	if err != nil {
-//		return err
-//	}
-//	pgRWPodName := podList.Items[0].Name
-//	var dbUser, dbName, dbPWD string
-//	switch tool {
-//	case DefaultToolAirflowName:
-//		dbUser = DefaultToolAirflowDBUser
-//		dbPWD = DefaultToolAirflowDBPwd
-//		dbName = DefaultToolAirflowName
-//	case DefaultToolSupersetName:
-//		dbUser = DefaultToolSupersetDBUser
-//		dbPWD = DefaultToolSupersetDBPwd
-//		dbName = DefaultToolSupersetName
-//	}
-//	pSqlCreateUserCmd := []string{"/usr/bin/psql", "-c", fmt.Sprintf("CREATE USER %s WITH PASSWORD '%s'", dbUser, dbPWD)}
-//	_, err = runExecCommand(pgRWPodName, t.ns, false, pSqlCreateUserCmd)
-//	if err != nil && !strings.Contains(err.Error(), "already exists") {
-//		return err
-//	}
-//	pSqlCreateDatabaseCmd := []string{"/usr/bin/psql", "-c", fmt.Sprintf("CREATE DATABASE %s OWNER %s", dbName, dbUser)}
-//	_, err = runExecCommand(pgRWPodName, t.ns, false, pSqlCreateDatabaseCmd)
-//	if err != nil && !strings.Contains(err.Error(), "already exists") {
-//		return err
-//	}
-//	return nil
-//}
 
 func (t *toolsCmd) installRedis(parameters []string) error {
 	relName := DefaultToolsNamePrefix + DefaultToolRedisName

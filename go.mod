@@ -8,7 +8,7 @@ require (
 	github.com/cloudnative-pg/cloudnative-pg v1.21.1
 	github.com/manifoldco/promptui v0.9.0
 	github.com/minio/directpv/apis/directpv.min.io/v1beta1 v0.0.0-00010101000000-000000000000
-	github.com/nineinfra/nineinfra v0.4.4
+	github.com/nineinfra/nineinfra v0.5.0
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.8.0
