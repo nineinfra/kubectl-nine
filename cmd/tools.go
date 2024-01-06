@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 	"io"
@@ -45,6 +46,7 @@ type toolsCmd struct {
 	nineName    string
 	toolkitArgs []string // --nodes flag
 	deletePVC   bool
+	chartPath   string
 }
 
 type DatabasesConnection struct {
@@ -89,6 +91,7 @@ func newToolsCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	f.StringVar(&DefaultToolAirflowTag, "airflow-tag", "2.7.3", "airflow image tag")
 	f.StringVarP(&DefaultStorageClass, "storage-pool", "s", "nineinfra-default", "storage pool fo tools")
 	f.BoolVar(&c.deletePVC, "delete-pvc", false, "delete the ninecluster tools pvcs")
+	f.StringVarP(&c.chartPath, "chart-path", "p", "", "local path of the charts")
 	f.StringVarP(&c.ns, "namespace", "n", "", "k8s namespace for tools")
 	f.BoolVar(&DEBUG, "debug", false, "print debug information")
 	return cmd
@@ -151,6 +154,23 @@ func (t *toolsCmd) genSupersetSecretFile() error {
 	return nil
 }
 
+func (t *toolsCmd) createDorisDatabase(ip string, port int32, user string, password string) error {
+	connStr := fmt.Sprintf("%s@tcp(%s:%d)/", user, ip, port)
+	db, err := sql.Open("mysql", connStr)
+	if err != nil {
+		fmt.Printf("Error:%v\n", err)
+		return err
+	}
+	defer db.Close()
+
+	_, err = db.Exec("CREATE DATABASE IF NOT EXISTS " + DefaultDorisDatabaseName)
+	if err != nil {
+		fmt.Printf("Error:%v\n", err)
+		return err
+	}
+	return nil
+}
+
 func (t *toolsCmd) genSupersetDataSourcesFile() error {
 	thriftIP, thriftPort := GetThriftIpAndPort(t.nineName, t.ns)
 	if thriftIP == "" || thriftPort == 0 {
@@ -169,6 +189,21 @@ func (t *toolsCmd) genSupersetDataSourcesFile() error {
 				Tables:          []string{},
 			},
 		},
+	}
+	dorisIP, dorisPort := GetDorisIpAndPort(t.nineName, t.ns)
+	if dorisIP != "" && dorisPort != 0 {
+		if err := t.createDorisDatabase(dorisIP, dorisPort, DefaultDorisAdminUser, DefaultDorisAdminPassword); err != nil {
+			return err
+		}
+		data["databases"] = append(data["databases"], DatabasesConnection{
+			AllowFileUpload: true,
+			AllowCTAS:       true,
+			AllowCVAS:       true,
+			DatabaseName:    DefaultDorisDatabaseName,
+			Extra:           "{\r\n    \"metadata_params\": {},\r\n    \"engine_params\": {},\r\n    \"metadata_cache_timeout\": {},\r\n    \"schemas_allowed_for_file_upload\": []\r\n}",
+			SqlAlchemyURI:   fmt.Sprintf("mysql://%s@%s:%d", DefaultDorisAdminUser, dorisIP, dorisPort),
+			Tables:          []string{},
+		})
 	}
 	yamlData, err := yaml.Marshal(&data)
 	if err != nil {
@@ -318,7 +353,7 @@ func (t *toolsCmd) createDatabase(tool string) error {
 
 func (t *toolsCmd) installRedis(parameters []string) error {
 	relName := DefaultToolsNamePrefix + DefaultToolRedisName
-	err := HelmInstallWithParameters(relName, "", DefaultToolRedisName, DefaultToolsChartList[DefaultToolRedisName], t.ns, t.genRedisParameters(relName, parameters)...)
+	err := HelmInstallWithParameters(relName, "", t.chartPath, DefaultToolRedisName, DefaultToolsChartList[DefaultToolRedisName], t.ns, t.genRedisParameters(relName, parameters)...)
 	if err != nil {
 		return err
 	}
@@ -335,7 +370,7 @@ func (t *toolsCmd) installAirflow(parameters []string) error {
 		return err
 	}
 	relName := DefaultToolsNamePrefix + DefaultToolAirflowName
-	err = HelmInstallWithParameters(relName, "", DefaultToolAirflowName, DefaultToolsChartList[DefaultToolAirflowName], t.ns, t.genAirflowParameters(relName, parameters)...)
+	err = HelmInstallWithParameters(relName, "", t.chartPath, DefaultToolAirflowName, DefaultToolsChartList[DefaultToolAirflowName], t.ns, t.genAirflowParameters(relName, parameters)...)
 	if err != nil {
 		return err
 	}
@@ -352,7 +387,7 @@ func (t *toolsCmd) installSuperset(parameters []string) error {
 		return err
 	}
 	relName := DefaultToolsNamePrefix + DefaultToolSupersetName
-	err = HelmInstallWithParameters(relName, "", DefaultToolSupersetName, DefaultToolsChartList[DefaultToolSupersetName], t.ns, t.genSupersetParameters(relName, parameters)...)
+	err = HelmInstallWithParameters(relName, "", t.chartPath, DefaultToolSupersetName, DefaultToolsChartList[DefaultToolSupersetName], t.ns, t.genSupersetParameters(relName, parameters)...)
 	if err != nil {
 		return err
 	}
@@ -361,7 +396,7 @@ func (t *toolsCmd) installSuperset(parameters []string) error {
 
 func (t *toolsCmd) installZookeeper(parameters []string) error {
 	relName := DefaultToolsNamePrefix + DefaultToolZookeeperName
-	err := HelmInstallWithParameters(relName, "", DefaultToolZookeeperName, DefaultToolsChartList[DefaultToolZookeeperName], t.ns, t.genZookeeperParameters(relName, parameters)...)
+	err := HelmInstallWithParameters(relName, "", t.chartPath, DefaultToolZookeeperName, DefaultToolsChartList[DefaultToolZookeeperName], t.ns, t.genZookeeperParameters(relName, parameters)...)
 	if err != nil {
 		return err
 	}
@@ -374,7 +409,7 @@ func (t *toolsCmd) installNifi(parameters []string) error {
 		return err
 	}
 	relName := DefaultToolsNamePrefix + DefaultToolNifiName
-	err = HelmInstallWithParameters(relName, "", DefaultToolNifiName, DefaultToolsChartList[DefaultToolNifiName], t.ns, t.genNifiParameters(relName, parameters)...)
+	err = HelmInstallWithParameters(relName, "", t.chartPath, DefaultToolNifiName, DefaultToolsChartList[DefaultToolNifiName], t.ns, t.genNifiParameters(relName, parameters)...)
 	if err != nil {
 		return err
 	}

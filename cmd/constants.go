@@ -46,7 +46,11 @@ const (
 	DefaultSparkUIName       = "spark-ui"
 )
 const (
-	FeaturesOlapKey = "olap"
+	FeaturesOlapKey           = "olap"
+	DefaultDorisPortName      = "query-port"
+	DefaultDorisAdminUser     = "root"
+	DefaultDorisAdminPassword = ""
+	DefaultDorisDatabaseName  = "nineinfra"
 )
 
 var (
@@ -99,6 +103,8 @@ var NineClusterProjectNameSuffix = map[string]string{
 	"metastore":  "-nine-metastore",
 	"minio":      "-nine-ss-0",
 	"postgresql": "-nine-pg",
+	"doris-fe":   "-nine-doris-fe",
+	"doris-be":   "-nine-doris-fe",
 }
 
 var NineClusterProjectWorkloadList = map[string]string{
@@ -106,6 +112,8 @@ var NineClusterProjectWorkloadList = map[string]string{
 	"metastore":  "statefulset",
 	"minio":      "statefulset",
 	"postgresql": "cluster",
+	"doris-fe":   "statefulset",
+	"doris-be":   "statefulset",
 }
 
 var NineToolList = map[string]interface{}{

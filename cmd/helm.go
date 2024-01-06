@@ -70,11 +70,15 @@ func InitHelm() error {
 	return nil
 }
 
-func HelmInstall(name string, repoName string, chart string, version string, namespace string, flags string) error {
+func HelmInstall(name string, repoName string, chartPath string, chart string, version string, namespace string, flags string) error {
 	if repoName == "" {
-		repoName = DefaultHelmRepoName
+		if chartPath != "" {
+			chart = chartPath + "/" + ChartName2TarName(chart)
+		} else {
+			repoName = DefaultHelmRepoName
+			chart = repoName + "/" + chart
+		}
 	}
-	chart = repoName + "/" + chart
 	if flags == "" {
 		_, errput, err := runCommand("helm", "install", name, chart, "--version", version, "-n", namespace)
 		if err != nil && !strings.Contains(errput, "in use") {
@@ -90,11 +94,23 @@ func HelmInstall(name string, repoName string, chart string, version string, nam
 	return nil
 }
 
-func HelmInstallWithParameters(name string, repoName string, chart string, version string, namespace string, parameters ...string) error {
-	if repoName == "" {
-		repoName = DefaultHelmRepoName
+func ChartName2TarName(chart string) string {
+	if chartVersion, ok := DefaultToolsChartList[chart]; ok {
+		return fmt.Sprintf("%s-v%s.tar.gz", chart, chartVersion)
 	}
-	chart = repoName + "/" + chart
+	return ""
+}
+
+func HelmInstallWithParameters(name string, repoName string, chartPath string, chart string, version string, namespace string, parameters ...string) error {
+	if repoName == "" {
+		if chartPath != "" {
+			chart = chartPath + "/" + ChartName2TarName(chart)
+		} else {
+			repoName = DefaultHelmRepoName
+			chart = repoName + "/" + chart
+		}
+	}
+
 	args := []string{"install", name, chart, "--version", version, "-n", namespace}
 	args = append(args, parameters...)
 	_, errput, err := runCommand("helm", args...)

@@ -6,6 +6,7 @@ require (
 	github.com/beltran/gohive v1.6.0
 	github.com/cloudnative-pg/client v0.0.0-00010101000000-000000000000
 	github.com/cloudnative-pg/cloudnative-pg v1.21.1
+	github.com/go-sql-driver/mysql v1.7.1
 	github.com/manifoldco/promptui v0.9.0
 	github.com/minio/directpv/apis/directpv.min.io/v1beta1 v0.0.0-00010101000000-000000000000
 	github.com/nineinfra/nineinfra v0.5.0
