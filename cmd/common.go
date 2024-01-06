@@ -430,6 +430,10 @@ func GenThriftSvcName(name string) string {
 	return name + DefaultNineSuffix + "-kyuubi"
 }
 
+func GenDorisSvcName(name string) string {
+	return name + DefaultNineSuffix + "-doris-fe-service"
+}
+
 func GenThriftServiceAccountName(name string) string {
 	return name + DefaultNineSuffix + "-kyuubi"
 }
@@ -444,6 +448,10 @@ func GetPostgresIpAndPort(name string, ns string) (string, int32) {
 
 func GetThriftIpAndPort(name string, ns string) (string, int32) {
 	return GetSvcAccessInfo(GenThriftSvcName(name), DefaultThriftPortName, ns)
+}
+
+func GetDorisIpAndPort(name string, ns string) (string, int32) {
+	return GetSvcAccessInfo(GenDorisSvcName(name), DefaultDorisPortName, ns)
 }
 
 func GetThriftPodName(name string, ns string) (string, error) {

@@ -17,9 +17,10 @@ const (
 )
 
 type operatorInstallCmd struct {
-	out    io.Writer
-	errOut io.Writer
-	output bool
+	out       io.Writer
+	errOut    io.Writer
+	output    bool
+	chartPath string
 }
 
 func newInstallCmd(out io.Writer, errOut io.Writer) *cobra.Command {
@@ -43,6 +44,7 @@ func newInstallCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	cmd = DisableHelp(cmd)
 	f := cmd.Flags()
 	f.BoolVar(&DEBUG, "debug", false, "print debug information")
+	f.StringVarP(&o.chartPath, "chart-path", "p", "", "local path of the charts")
 	return cmd
 }
 
@@ -68,7 +70,7 @@ func (o *operatorInstallCmd) run() error {
 	}
 
 	for c, v := range DefaultChartList {
-		err := HelmInstall(c, "", c, v, DefaultNamespace, flags)
+		err := HelmInstall(c, "", o.chartPath, c, v, DefaultNamespace, flags)
 		if err != nil {
 			fmt.Printf("Error: %v \n", err)
 			os.Exit(1)
