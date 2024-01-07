@@ -38,15 +38,28 @@ var (
 			},
 		},
 	}
+	MinioClusterInfo = nineinfrav1alpha1.ClusterInfo{
+		Type:    nineinfrav1alpha1.MinioClusterType,
+		Version: DefaultMinioVersion,
+		Configs: nineinfrav1alpha1.ClusterConfig{
+			Image: nineinfrav1alpha1.ImageConfig{
+				Repository: DefaultMinioRepo,
+				Tag:        DefaultMinioVersion,
+				PullPolicy: DefaultMinioRepoPullPolicy,
+			},
+		},
+	}
 )
 
 // ClusterOptions encapsulates the CLI options for a NineCluster
 type ClusterOptions struct {
-	Name       string
-	NS         string
-	DataVolume int
-	OlapVolume int
-	Olap       string
+	Name            string
+	NS              string
+	DataVolume      int
+	StoragePool     string
+	OlapVolume      int
+	OlapStoragePool string
+	Olap            string
 }
 
 type createCmd struct {
@@ -66,6 +79,16 @@ func (t ClusterOptions) Validate() error {
 	}
 	if t.OlapVolume <= 10 {
 		return errors.New("olap volume size should not be less than 10")
+	}
+	if t.StoragePool != "" {
+		if !CheckStoragePoolValid(t.StoragePool) {
+			return errors.New(fmt.Sprintf("storage pool %s may be not exist", t.StoragePool))
+		}
+	}
+	if t.OlapStoragePool != "" {
+		if !CheckStoragePoolValid(t.OlapStoragePool) {
+			return errors.New(fmt.Sprintf("olap storage pool %s may be not exist", t.OlapStoragePool))
+		}
 	}
 	return nil
 }
@@ -94,6 +117,8 @@ func newClusterCreateCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	f.IntVarP(&c.clusterOpts.DataVolume, "data-volume", "v", 32, "total raw data volumes of the ninecluster,the unit is Gi, e.g. 16")
 	f.StringVarP(&c.clusterOpts.Olap, "olap", "a", "", fmt.Sprintf("add olap to the ninecluster,support [%s]", olapsSupported))
 	f.IntVar(&c.clusterOpts.OlapVolume, "olap-volume", 100, "olap storage volume size")
+	f.StringVarP(&c.clusterOpts.StoragePool, "storage-pool", "s", "", "storage pool for the ninecluster")
+	f.StringVarP(&c.clusterOpts.OlapStoragePool, "olap-storage-pool", "o", "", "storage pool for olap")
 	f.BoolVar(&DEBUG, "debug", false, "print debug information")
 	f.StringVarP(&c.clusterOpts.NS, "namespace", "n", "", "k8s namespace for this ninecluster")
 	return cmd
@@ -134,7 +159,12 @@ func (c *createCmd) run(_ []string) error {
 		userClusterSet = make([]nineinfrav1alpha1.ClusterInfo, 0)
 		DorisBeClusterInfo.Resource.ResourceRequirements.Requests["storage"] =
 			*resource.NewQuantity(int64(c.clusterOpts.OlapVolume*GiMultiplier), resource.BinarySI)
+		DorisBeClusterInfo.Resource.StorageClass = c.clusterOpts.OlapStoragePool
 		userClusterSet = append(userClusterSet, DorisBeClusterInfo)
+	}
+	if c.clusterOpts.StoragePool != "" {
+		MinioClusterInfo.Resource.StorageClass = c.clusterOpts.StoragePool
+		userClusterSet = append(userClusterSet, MinioClusterInfo)
 	}
 	desiredNineCluster := &nineinfrav1alpha1.NineCluster{
 		ObjectMeta: metav1.ObjectMeta{

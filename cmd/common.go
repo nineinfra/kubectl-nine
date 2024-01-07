@@ -553,3 +553,19 @@ func GetReadyDirectPVVolumes(dpclient *directpvv1beta1.DirectpvV1beta1Client, ns
 	}
 	return &directpvv1beta1.DirectPVVolumeList{Items: specificDirectPVList}, nil
 }
+
+func CheckStoragePoolValid(sp string) bool {
+	path, _ := rootCmd.Flags().GetString(kubeconfig)
+	client, err := GetKubeClient(path)
+	if err != nil {
+		return false
+	}
+	_, err = client.StorageV1().StorageClasses().Get(context.TODO(), sp, metav1.GetOptions{})
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return false
+	}
+	if k8serrors.IsNotFound(err) {
+		return false
+	}
+	return true
+}
