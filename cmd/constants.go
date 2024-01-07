@@ -104,7 +104,7 @@ var NineClusterProjectNameSuffix = map[string]string{
 	"minio":      "-nine-ss-0",
 	"postgresql": "-nine-pg",
 	"doris-fe":   "-nine-doris-fe",
-	"doris-be":   "-nine-doris-fe",
+	"doris-be":   "-nine-doris-be",
 }
 
 var NineClusterProjectWorkloadList = map[string]string{
