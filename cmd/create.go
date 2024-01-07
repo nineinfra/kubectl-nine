@@ -7,6 +7,8 @@ import (
 	nineinfrav1alpha1 "github.com/nineinfra/nineinfra/api/v1alpha1"
 	"github.com/spf13/cobra"
 	"io"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strings"
 )
@@ -17,7 +19,25 @@ const (
 )
 
 var (
-	olapsSupported = "doris"
+	olapsSupported     = "doris"
+	DorisBeClusterInfo = nineinfrav1alpha1.ClusterInfo{
+		Type:    nineinfrav1alpha1.DorisBEClusterType,
+		Version: DefaultDorisBEVersion,
+		Configs: nineinfrav1alpha1.ClusterConfig{
+			Image: nineinfrav1alpha1.ImageConfig{
+				Repository: DefaultDorisBERepo,
+				Tag:        DefaultDorisBEVersion,
+				PullPolicy: DefaultDorisBERepoPullPolicy,
+			},
+		},
+		Resource: nineinfrav1alpha1.ResourceConfig{
+			ResourceRequirements: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					"storage": *resource.NewQuantity(int64(DefaultDorisBEStoragePVSize*GiMultiplier), resource.BinarySI),
+				},
+			},
+		},
+	}
 )
 
 // ClusterOptions encapsulates the CLI options for a NineCluster
@@ -25,6 +45,7 @@ type ClusterOptions struct {
 	Name       string
 	NS         string
 	DataVolume int
+	OlapVolume int
 	Olap       string
 }
 
@@ -69,6 +90,7 @@ func newClusterCreateCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	f := cmd.Flags()
 	f.IntVarP(&c.clusterOpts.DataVolume, "data-volume", "v", 32, "total raw data volumes of the ninecluster,default uint Gi, e.g. 16")
 	f.StringVarP(&c.clusterOpts.Olap, "olap", "a", "", fmt.Sprintf("add olap to the ninecluster,support [%s]", olapsSupported))
+	f.IntVar(&c.clusterOpts.OlapVolume, "olap-volume", 100, "olap storage volume size")
 	f.StringVarP(&c.clusterOpts.NS, "namespace", "n", "", "k8s namespace for this ninecluster")
 	return cmd
 }
@@ -102,8 +124,12 @@ func (c *createCmd) run(_ []string) error {
 		return err
 	}
 	var features = map[string]string{}
+	var userClusterSet []nineinfrav1alpha1.ClusterInfo
 	if c.clusterOpts.Olap != "" {
 		features[FeaturesOlapKey] = c.clusterOpts.Olap
+		userClusterSet = make([]nineinfrav1alpha1.ClusterInfo, 0)
+		DefaultDorisBEStoragePVSize = c.clusterOpts.OlapVolume
+		userClusterSet = append(userClusterSet, DorisBeClusterInfo)
 	}
 	desiredNineCluster := &nineinfrav1alpha1.NineCluster{
 		ObjectMeta: metav1.ObjectMeta{
@@ -113,6 +139,7 @@ func (c *createCmd) run(_ []string) error {
 		Spec: nineinfrav1alpha1.NineClusterSpec{
 			DataVolume: c.clusterOpts.DataVolume,
 			Features:   features,
+			ClusterSet: userClusterSet,
 		},
 	}
 
