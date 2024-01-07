@@ -76,6 +76,10 @@ func constructPVCLabel(name string) string {
 	return DefaultPVCLabelKey + "=" + name
 }
 
+func constructOlabPVCLabel(name string) string {
+	return DefaultOlapPVCLabelKey + "=" + name + DefaultDorisBENameSuffix
+}
+
 func deleteNineInfraPVC(name string, namespace string) error {
 	if name == "" || namespace == "" {
 		return nil
@@ -87,6 +91,29 @@ func deleteNineInfraPVC(name string, namespace string) error {
 	}
 
 	err = c.CoreV1().PersistentVolumeClaims(namespace).DeleteCollection(context.TODO(), metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: constructPVCLabel(name)})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func deleteOlapPVC(name string, namespace string) error {
+	if name == "" || namespace == "" {
+		return nil
+	}
+	path, _ := rootCmd.Flags().GetString(kubeconfig)
+	c, err := GetKubeClient(path)
+	if err != nil {
+		return err
+	}
+
+	olapPvcLabel := DefaultOlapPVCLabelKey + "=" + name + DefaultDorisBENameSuffix
+	err = c.CoreV1().PersistentVolumeClaims(namespace).DeleteCollection(context.TODO(), metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: olapPvcLabel})
+	if err != nil {
+		return err
+	}
+	olapPvcLabel = DefaultOlapPVCLabelKey + "=" + name + DefaultDorisFENameSuffix
+	err = c.CoreV1().PersistentVolumeClaims(namespace).DeleteCollection(context.TODO(), metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: olapPvcLabel})
 	if err != nil {
 		return err
 	}
@@ -109,6 +136,10 @@ func (d *deleteCmd) run(args []string) error {
 		if Ask("This is irreversible, are you sure you want to delete all pvcs of this NineCluster") {
 			fmt.Println("All PVCs used by Nine will be deleted")
 			err := deleteNineInfraPVC(d.deleteOpts.Name+DefaultNineSuffix, d.deleteOpts.NS)
+			if err != nil {
+				return err
+			}
+			err = deleteOlapPVC(d.deleteOpts.Name+DefaultNineSuffix, d.deleteOpts.NS)
 			if err != nil {
 				return err
 			}

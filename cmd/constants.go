@@ -47,8 +47,11 @@ const (
 	DefaultSparkUIName       = "spark-ui"
 )
 const (
-	FeaturesOlapKey      = "olap"
-	DefaultDorisPortName = "query-port"
+	FeaturesOlapKey          = "olap"
+	DefaultDorisPortName     = "query-port"
+	DefaultOlapPVCLabelKey   = "app.doris.ownerreference/name"
+	DefaultDorisBENameSuffix = "-doris-be"
+	DefaultDorisFENameSuffix = "-doris-fe"
 )
 
 var (
