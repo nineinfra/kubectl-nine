@@ -72,7 +72,7 @@ var (
 	DefaultDorisAdminUser        = "root"
 	DefaultDorisAdminPassword    = ""
 	DefaultDorisDatabaseName     = "nineinfra"
-	DefaultDorisFERepo           = "selectdb/doris.be-ubuntu"
+	DefaultDorisFERepo           = "selectdb/doris.fe-ubuntu"
 	DefaultDorisFEVersion        = "2.0.2"
 	DefaultDorisFERepoPullPolicy = "IfNotPresent"
 	DefaultDorisFEStoragePVSize  = 20
