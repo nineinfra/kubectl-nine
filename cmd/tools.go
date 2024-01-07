@@ -118,9 +118,9 @@ func (t *toolsCmd) validate(args []string) error {
 	return nil
 }
 
-func (t *toolsCmd) deleteToolsPVC(name string, namespace string) error {
-	if name == "" || namespace == "" {
-		return nil
+func (t *toolsCmd) deleteToolsPVC(namespace string) error {
+	if namespace == "" {
+		return errors.New("namespace should be supplied when deleting pvc")
 	}
 	path, _ := rootCmd.Flags().GetString(kubeconfig)
 	c, err := GetKubeClient(path)
@@ -128,7 +128,13 @@ func (t *toolsCmd) deleteToolsPVC(name string, namespace string) error {
 		return err
 	}
 
-	err = c.CoreV1().PersistentVolumeClaims(namespace).DeleteCollection(context.TODO(), metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: constructPVCLabel(name)})
+	toolsPvcLabel := DefaultAirflowPVCLabelKey + "=" + DefaultToolsNamePrefix + DefaultToolAirflowName
+	err = c.CoreV1().PersistentVolumeClaims(namespace).DeleteCollection(context.TODO(), metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: toolsPvcLabel})
+	if err != nil {
+		return err
+	}
+	toolsPvcLabel = DefaultZookeeperPVCLabelKey + "=" + DefaultToolsNamePrefix + DefaultToolZookeeperName
+	err = c.CoreV1().PersistentVolumeClaims(namespace).DeleteCollection(context.TODO(), metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: toolsPvcLabel})
 	if err != nil {
 		return err
 	}
@@ -455,6 +461,12 @@ func (t *toolsCmd) uninstall(parameters []string) error {
 		err := HelmUnInstall(relName, t.ns, flags)
 		if err != nil {
 			fmt.Printf("Error: %v \n", err)
+			return err
+		}
+	}
+
+	if t.deletePVC {
+		if err := t.deleteToolsPVC(t.ns); err != nil {
 			return err
 		}
 	}

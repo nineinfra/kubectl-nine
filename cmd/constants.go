@@ -34,6 +34,8 @@ const (
 	DefaultToolNifiUserName              = "admin"
 	DefaultToolNifiUserPWD               = "nineinfraadmin"
 	DefaultZookeeperSVCName              = DefaultToolsNamePrefix + "zookeeper-headless"
+	DefaultAirflowPVCLabelKey            = "release"
+	DefaultZookeeperPVCLabelKey          = "app.kubernetes.io/instance"
 )
 
 const (
