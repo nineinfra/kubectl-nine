@@ -7,9 +7,6 @@ const (
 	DefaultThriftPortName  = "thrift-binary"
 	DefaultCMDHelm         = "helm"
 	DefaultCMDDirectPV     = "kubectl-directpv"
-	DefaultKyuubiUserName  = "hive"
-	DefaultKyuubiVersion   = "1.8.0"
-	DefaultScalaVersion    = "2.12"
 	DefaultNineInfraPrefix = "nineinfra"
 	GiMultiplier           = 1024 * 1024 * 1024
 )
@@ -34,6 +31,8 @@ const (
 	DefaultToolNifiUserName              = "admin"
 	DefaultToolNifiUserPWD               = "nineinfraadmin"
 	DefaultZookeeperSVCName              = DefaultToolsNamePrefix + "zookeeper-headless"
+	DefaultAirflowPVCLabelKey            = "release"
+	DefaultZookeeperPVCLabelKey          = "app.kubernetes.io/instance"
 )
 
 const (
@@ -73,10 +72,21 @@ var (
 	DefaultDorisAdminUser        = "root"
 	DefaultDorisAdminPassword    = ""
 	DefaultDorisDatabaseName     = "nineinfra"
+	DefaultDorisFERepo           = "selectdb/doris.fe-ubuntu"
+	DefaultDorisFEVersion        = "2.0.2"
+	DefaultDorisFERepoPullPolicy = "IfNotPresent"
+	DefaultDorisFEStoragePVSize  = 20
 	DefaultDorisBERepo           = "selectdb/doris.be-ubuntu"
 	DefaultDorisBEVersion        = "2.0.2"
 	DefaultDorisBERepoPullPolicy = "IfNotPresent"
 	DefaultDorisBEStoragePVSize  = 100
+	DefaultKyuubiUserName        = "hive"
+	DefaultKyuubiVersion         = "1.8.0"
+	DefaultScalaVersion          = "2.12"
+	DefaultMinioRepo             = "minio/minio"
+	DefaultMinioVersion          = "RELEASE.2023-09-07T02-05-02Z"
+	DefaultMinioRepoPullPolicy   = "IfNotPresent"
+	DefaultDataBaseVersion       = "v16.0.0"
 )
 
 var DefaultChartList = map[string]string{

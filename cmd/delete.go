@@ -76,10 +76,6 @@ func constructPVCLabel(name string) string {
 	return DefaultPVCLabelKey + "=" + name
 }
 
-func constructOlabPVCLabel(name string) string {
-	return DefaultOlapPVCLabelKey + "=" + name + DefaultDorisBENameSuffix
-}
-
 func deleteNineInfraPVC(name string, namespace string) error {
 	if name == "" || namespace == "" {
 		return nil

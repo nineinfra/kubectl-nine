@@ -47,6 +47,7 @@ type toolsCmd struct {
 	toolkitArgs []string // --nodes flag
 	deletePVC   bool
 	chartPath   string
+	storagepool string
 }
 
 type DatabasesConnection struct {
@@ -89,7 +90,7 @@ func newToolsCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	f.StringVar(&DefaultToolNifiSvcType, "nifi-svctype", "NodePort", "service type for nifi ui")
 	f.StringVar(&DefaultToolAirflowRepository, "airflow-repo", "nineinfra/airflow", "airflow image repository")
 	f.StringVar(&DefaultToolAirflowTag, "airflow-tag", "2.7.3", "airflow image tag")
-	f.StringVarP(&DefaultStorageClass, "storage-pool", "s", "nineinfra-default", "storage pool fo tools")
+	f.StringVarP(&c.storagepool, "storage-pool", "s", DefaultStorageClass, "storage pool for tools")
 	f.BoolVar(&c.deletePVC, "delete-pvc", false, "delete the ninecluster tools pvcs")
 	f.StringVarP(&c.chartPath, "chart-path", "p", "", "local path of the charts")
 	f.StringVarP(&c.ns, "namespace", "n", "", "k8s namespace for tools")
@@ -115,12 +116,17 @@ func (t *toolsCmd) validate(args []string) error {
 			return fmt.Errorf("invalid access host %s", DefaultAccessHost)
 		}
 	}
+	if t.storagepool != DefaultStorageClass {
+		if !CheckStoragePoolValid(t.storagepool) {
+			return errors.New(fmt.Sprintf("tools storage pool %s may be not exist", t.storagepool))
+		}
+	}
 	return nil
 }
 
-func (t *toolsCmd) deleteToolsPVC(name string, namespace string) error {
-	if name == "" || namespace == "" {
-		return nil
+func (t *toolsCmd) deleteToolsPVC(namespace string) error {
+	if namespace == "" {
+		return errors.New("namespace should be supplied when deleting pvc")
 	}
 	path, _ := rootCmd.Flags().GetString(kubeconfig)
 	c, err := GetKubeClient(path)
@@ -128,7 +134,13 @@ func (t *toolsCmd) deleteToolsPVC(name string, namespace string) error {
 		return err
 	}
 
-	err = c.CoreV1().PersistentVolumeClaims(namespace).DeleteCollection(context.TODO(), metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: constructPVCLabel(name)})
+	toolsPvcLabel := DefaultAirflowPVCLabelKey + "=" + DefaultToolsNamePrefix + DefaultToolAirflowName
+	err = c.CoreV1().PersistentVolumeClaims(namespace).DeleteCollection(context.TODO(), metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: toolsPvcLabel})
+	if err != nil {
+		return err
+	}
+	toolsPvcLabel = DefaultZookeeperPVCLabelKey + "=" + DefaultToolsNamePrefix + DefaultToolZookeeperName
+	err = c.CoreV1().PersistentVolumeClaims(namespace).DeleteCollection(context.TODO(), metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: toolsPvcLabel})
 	if err != nil {
 		return err
 	}
@@ -252,7 +264,7 @@ func (t *toolsCmd) genSupersetParameters(relName string, parameters []string) []
 
 func (t *toolsCmd) genZookeeperParameters(relName string, parameters []string) []string {
 	params := append(parameters, []string{"--set", fmt.Sprintf("fullnameOverride=%s", relName)}...)
-	params = append(params, []string{"--set", fmt.Sprintf("persistence.storageClass=%s", DefaultStorageClass)}...)
+	params = append(params, []string{"--set", fmt.Sprintf("persistence.storageClass=%s", t.storagepool)}...)
 	params = append(params, []string{"--set", "replicaCount=3"}...)
 	params = append(params, []string{"--set", "podAntiAffinityPreset=hard"}...)
 	return params
@@ -272,7 +284,7 @@ func (t *toolsCmd) genNifiParameters(relName string, parameters []string) []stri
 	}
 	params := append(parameters, []string{"--set", "fullnameOverride=" + relName}...)
 	params = append(params, []string{"--set", "auth.enabled=false"}...)
-	params = append(params, []string{"--set", fmt.Sprintf("master.persistence.storageClass=%s", DefaultStorageClass)}...)
+	params = append(params, []string{"--set", fmt.Sprintf("master.persistence.storageClass=%s", t.storagepool)}...)
 	params = append(params, []string{"--set", fmt.Sprintf("service.type=%s", DefaultToolNifiSvcType)}...)
 	params = append(params, []string{"--set", fmt.Sprintf("service.nodePort=%d", DefaultToolNifiSvcNodePort)}...)
 	params = append(params, []string{"--set", fmt.Sprintf("properties.webProxyHost=%s:%d", nodePortIp, DefaultToolNifiSvcNodePort)}...)
@@ -298,9 +310,9 @@ func (t *toolsCmd) genAirflowParameters(relName string, parameters []string) []s
 	params = append(params, []string{"--set", fmt.Sprintf("logs.persistence.size=%s", DefaultToolAirflowDiskSize)}...)
 	params = append(params, []string{"--set", fmt.Sprintf("workers.persistence.size=%s", DefaultToolAirflowDiskSize)}...)
 	params = append(params, []string{"--set", fmt.Sprintf("triggerer.persistence.size=%s", DefaultToolAirflowDiskSize)}...)
-	params = append(params, []string{"--set", fmt.Sprintf("workers.persistence.storageClassName=%s", DefaultStorageClass)}...)
-	params = append(params, []string{"--set", fmt.Sprintf("triggerer.persistence.storageClassName=%s", DefaultStorageClass)}...)
-	params = append(params, []string{"--set", fmt.Sprintf("dags.persistence.storageClassName=%s", DefaultStorageClass)}...)
+	params = append(params, []string{"--set", fmt.Sprintf("workers.persistence.storageClassName=%s", t.storagepool)}...)
+	params = append(params, []string{"--set", fmt.Sprintf("triggerer.persistence.storageClassName=%s", t.storagepool)}...)
+	params = append(params, []string{"--set", fmt.Sprintf("dags.persistence.storageClassName=%s", t.storagepool)}...)
 	params = append(params, []string{"--set", "statsd.enabled=false"}...)
 	params = append(params, []string{"--set", "redis.enabled=false"}...)
 	params = append(params, []string{"--set", "statsd.enabled=false"}...)
@@ -310,7 +322,7 @@ func (t *toolsCmd) genAirflowParameters(relName string, parameters []string) []s
 
 func (t *toolsCmd) genRedisParameters(relName string, parameters []string) []string {
 	params := append(parameters, []string{"--set", "fullnameOverride=" + relName}...)
-	params = append(params, []string{"--set", fmt.Sprintf("storage.className=%s", DefaultStorageClass)}...)
+	params = append(params, []string{"--set", fmt.Sprintf("storage.className=%s", t.storagepool)}...)
 	return params
 }
 
@@ -455,6 +467,12 @@ func (t *toolsCmd) uninstall(parameters []string) error {
 		err := HelmUnInstall(relName, t.ns, flags)
 		if err != nil {
 			fmt.Printf("Error: %v \n", err)
+			return err
+		}
+	}
+
+	if t.deletePVC {
+		if err := t.deleteToolsPVC(t.ns); err != nil {
 			return err
 		}
 	}

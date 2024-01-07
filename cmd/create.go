@@ -20,6 +20,24 @@ const (
 
 var (
 	olapsSupported     = "doris"
+	DorisFeClusterInfo = nineinfrav1alpha1.ClusterInfo{
+		Type:    nineinfrav1alpha1.DorisFEClusterType,
+		Version: DefaultDorisFEVersion,
+		Configs: nineinfrav1alpha1.ClusterConfig{
+			Image: nineinfrav1alpha1.ImageConfig{
+				Repository: DefaultDorisFERepo,
+				Tag:        DefaultDorisFEVersion,
+				PullPolicy: DefaultDorisFERepoPullPolicy,
+			},
+		},
+		Resource: nineinfrav1alpha1.ResourceConfig{
+			ResourceRequirements: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					"storage": *resource.NewQuantity(int64(DefaultDorisFEStoragePVSize*GiMultiplier), resource.BinarySI),
+				},
+			},
+		},
+	}
 	DorisBeClusterInfo = nineinfrav1alpha1.ClusterInfo{
 		Type:    nineinfrav1alpha1.DorisBEClusterType,
 		Version: DefaultDorisBEVersion,
@@ -38,15 +56,37 @@ var (
 			},
 		},
 	}
+	MinioClusterInfo = nineinfrav1alpha1.ClusterInfo{
+		Type:    nineinfrav1alpha1.MinioClusterType,
+		Version: DefaultMinioVersion,
+		Configs: nineinfrav1alpha1.ClusterConfig{
+			Image: nineinfrav1alpha1.ImageConfig{
+				Repository: DefaultMinioRepo,
+				Tag:        DefaultMinioVersion,
+				PullPolicy: DefaultMinioRepoPullPolicy,
+			},
+		},
+	}
+	PGClusterInfo = nineinfrav1alpha1.ClusterInfo{
+		Type:    nineinfrav1alpha1.DatabaseClusterType,
+		SubType: nineinfrav1alpha1.DbTypePostgres,
+		Version: DefaultDataBaseVersion,
+		Resource: nineinfrav1alpha1.ResourceConfig{
+			StorageClass: DefaultStorageClass,
+		},
+	}
 )
 
 // ClusterOptions encapsulates the CLI options for a NineCluster
 type ClusterOptions struct {
-	Name       string
-	NS         string
-	DataVolume int
-	OlapVolume int
-	Olap       string
+	Name                 string
+	NS                   string
+	DataVolume           int
+	StoragePool          string
+	OlapVolume           int
+	OlapStoragePool      string
+	MetastoreStoragePool string
+	Olap                 string
 }
 
 type createCmd struct {
@@ -66,6 +106,21 @@ func (t ClusterOptions) Validate() error {
 	}
 	if t.OlapVolume <= 10 {
 		return errors.New("olap volume size should not be less than 10")
+	}
+	if t.StoragePool != "" {
+		if !CheckStoragePoolValid(t.StoragePool) {
+			return errors.New(fmt.Sprintf("storage pool %s may be not exist", t.StoragePool))
+		}
+	}
+	if t.OlapStoragePool != "" {
+		if !CheckStoragePoolValid(t.OlapStoragePool) {
+			return errors.New(fmt.Sprintf("olap storage pool %s may be not exist", t.OlapStoragePool))
+		}
+	}
+	if t.MetastoreStoragePool != "" {
+		if !CheckStoragePoolValid(t.MetastoreStoragePool) {
+			return errors.New(fmt.Sprintf("metastore storage pool %s may be not exist", t.MetastoreStoragePool))
+		}
 	}
 	return nil
 }
@@ -94,6 +149,9 @@ func newClusterCreateCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	f.IntVarP(&c.clusterOpts.DataVolume, "data-volume", "v", 32, "total raw data volumes of the ninecluster,the unit is Gi, e.g. 16")
 	f.StringVarP(&c.clusterOpts.Olap, "olap", "a", "", fmt.Sprintf("add olap to the ninecluster,support [%s]", olapsSupported))
 	f.IntVar(&c.clusterOpts.OlapVolume, "olap-volume", 100, "olap storage volume size")
+	f.StringVarP(&c.clusterOpts.StoragePool, "storage-pool", "s", "", "storage pool for the ninecluster")
+	f.StringVarP(&c.clusterOpts.OlapStoragePool, "olap-storage-pool", "o", "", "storage pool for olap")
+	f.StringVarP(&c.clusterOpts.MetastoreStoragePool, "metastore-storage-pool", "m", "", "storage pool for metastore")
 	f.BoolVar(&DEBUG, "debug", false, "print debug information")
 	f.StringVarP(&c.clusterOpts.NS, "namespace", "n", "", "k8s namespace for this ninecluster")
 	return cmd
@@ -131,10 +189,20 @@ func (c *createCmd) run(_ []string) error {
 	var userClusterSet []nineinfrav1alpha1.ClusterInfo
 	if c.clusterOpts.Olap != "" {
 		features[FeaturesOlapKey] = c.clusterOpts.Olap
-		userClusterSet = make([]nineinfrav1alpha1.ClusterInfo, 0)
 		DorisBeClusterInfo.Resource.ResourceRequirements.Requests["storage"] =
 			*resource.NewQuantity(int64(c.clusterOpts.OlapVolume*GiMultiplier), resource.BinarySI)
+		DorisBeClusterInfo.Resource.StorageClass = c.clusterOpts.OlapStoragePool
 		userClusterSet = append(userClusterSet, DorisBeClusterInfo)
+		DorisFeClusterInfo.Resource.StorageClass = c.clusterOpts.OlapStoragePool
+		userClusterSet = append(userClusterSet, DorisFeClusterInfo)
+	}
+	if c.clusterOpts.StoragePool != "" {
+		MinioClusterInfo.Resource.StorageClass = c.clusterOpts.StoragePool
+		userClusterSet = append(userClusterSet, MinioClusterInfo)
+	}
+	if c.clusterOpts.MetastoreStoragePool != "" {
+		PGClusterInfo.Resource.StorageClass = c.clusterOpts.MetastoreStoragePool
+		userClusterSet = append(userClusterSet, PGClusterInfo)
 	}
 	desiredNineCluster := &nineinfrav1alpha1.NineCluster{
 		ObjectMeta: metav1.ObjectMeta{
