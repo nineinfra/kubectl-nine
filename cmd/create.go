@@ -85,6 +85,7 @@ type ClusterOptions struct {
 	StoragePool          string
 	OlapVolume           int
 	OlapStoragePool      string
+	OlapExecutors        int32
 	MetastoreStoragePool string
 	Olap                 string
 }
@@ -151,6 +152,7 @@ func newClusterCreateCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	f.IntVar(&c.clusterOpts.OlapVolume, "olap-volume", 100, "olap storage volume size")
 	f.StringVarP(&c.clusterOpts.StoragePool, "storage-pool", "s", "", "storage pool for the ninecluster")
 	f.StringVarP(&c.clusterOpts.OlapStoragePool, "olap-storage-pool", "o", "", "storage pool for olap")
+	f.Int32VarP(&c.clusterOpts.OlapExecutors, "olap-executors", "r", 3, "num of the olap executors")
 	f.StringVarP(&c.clusterOpts.MetastoreStoragePool, "metastore-storage-pool", "m", "", "storage pool for metastore")
 	f.BoolVar(&DEBUG, "debug", false, "print debug information")
 	f.StringVarP(&c.clusterOpts.NS, "namespace", "n", "", "k8s namespace for this ninecluster")
@@ -192,6 +194,7 @@ func (c *createCmd) run(_ []string) error {
 		DorisBeClusterInfo.Resource.ResourceRequirements.Requests["storage"] =
 			*resource.NewQuantity(int64(c.clusterOpts.OlapVolume*GiMultiplier), resource.BinarySI)
 		DorisBeClusterInfo.Resource.StorageClass = c.clusterOpts.OlapStoragePool
+		DorisBeClusterInfo.Resource.Replicas = c.clusterOpts.OlapExecutors
 		userClusterSet = append(userClusterSet, DorisBeClusterInfo)
 		DorisFeClusterInfo.Resource.StorageClass = c.clusterOpts.OlapStoragePool
 		userClusterSet = append(userClusterSet, DorisFeClusterInfo)
