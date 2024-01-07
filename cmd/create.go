@@ -91,7 +91,7 @@ func newClusterCreateCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	}
 	cmd = DisableHelp(cmd)
 	f := cmd.Flags()
-	f.IntVarP(&c.clusterOpts.DataVolume, "data-volume", "v", 32, "total raw data volumes of the ninecluster,Uint Gi, e.g. 16")
+	f.IntVarP(&c.clusterOpts.DataVolume, "data-volume", "v", 32, "total raw data volumes of the ninecluster,the unit is Gi, e.g. 16")
 	f.StringVarP(&c.clusterOpts.Olap, "olap", "a", "", fmt.Sprintf("add olap to the ninecluster,support [%s]", olapsSupported))
 	f.IntVar(&c.clusterOpts.OlapVolume, "olap-volume", 100, "olap storage volume size")
 	f.BoolVar(&DEBUG, "debug", false, "print debug information")
