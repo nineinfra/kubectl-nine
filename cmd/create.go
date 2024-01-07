@@ -64,6 +64,9 @@ func (t ClusterOptions) Validate() error {
 	if t.Olap != "" && !strings.Contains(olapsSupported, t.Olap) {
 		return errors.New(fmt.Sprintf("invalid olap:%s,support [%s]", t.Olap, olapsSupported))
 	}
+	if t.OlapVolume <= 10 {
+		return errors.New("olap volume size should not be less than 10")
+	}
 	return nil
 }
 
@@ -88,9 +91,10 @@ func newClusterCreateCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	}
 	cmd = DisableHelp(cmd)
 	f := cmd.Flags()
-	f.IntVarP(&c.clusterOpts.DataVolume, "data-volume", "v", 32, "total raw data volumes of the ninecluster,default uint Gi, e.g. 16")
+	f.IntVarP(&c.clusterOpts.DataVolume, "data-volume", "v", 32, "total raw data volumes of the ninecluster,the unit is Gi, e.g. 16")
 	f.StringVarP(&c.clusterOpts.Olap, "olap", "a", "", fmt.Sprintf("add olap to the ninecluster,support [%s]", olapsSupported))
 	f.IntVar(&c.clusterOpts.OlapVolume, "olap-volume", 100, "olap storage volume size")
+	f.BoolVar(&DEBUG, "debug", false, "print debug information")
 	f.StringVarP(&c.clusterOpts.NS, "namespace", "n", "", "k8s namespace for this ninecluster")
 	return cmd
 }
@@ -128,7 +132,8 @@ func (c *createCmd) run(_ []string) error {
 	if c.clusterOpts.Olap != "" {
 		features[FeaturesOlapKey] = c.clusterOpts.Olap
 		userClusterSet = make([]nineinfrav1alpha1.ClusterInfo, 0)
-		DefaultDorisBEStoragePVSize = c.clusterOpts.OlapVolume
+		DorisBeClusterInfo.Resource.ResourceRequirements.Requests["storage"] =
+			*resource.NewQuantity(int64(c.clusterOpts.OlapVolume*GiMultiplier), resource.BinarySI)
 		userClusterSet = append(userClusterSet, DorisBeClusterInfo)
 	}
 	desiredNineCluster := &nineinfrav1alpha1.NineCluster{
@@ -146,6 +151,10 @@ func (c *createCmd) run(_ []string) error {
 	exists, _ := CheckNineClusterExist(c.clusterOpts.Name, c.clusterOpts.NS)
 	if exists {
 		return errors.New("NineCluster:" + c.clusterOpts.Name + " already exists in namespace:" + c.clusterOpts.NS + "!")
+	}
+
+	if DEBUG {
+		fmt.Printf("Start to create a nine cluster,detail info:%v\n", desiredNineCluster)
 	}
 
 	_, err = nc.NineinfraV1alpha1().NineClusters(c.clusterOpts.NS).Create(context.TODO(), desiredNineCluster, metav1.CreateOptions{})
