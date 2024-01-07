@@ -11,6 +11,7 @@ const (
 	DefaultKyuubiVersion   = "1.8.0"
 	DefaultScalaVersion    = "2.12"
 	DefaultNineInfraPrefix = "nineinfra"
+	GiMultiplier           = 1024 * 1024 * 1024
 )
 const (
 	DefaultPGRWSVCNameSuffix             = DefaultNineSuffix + "-pg-rw"
@@ -46,11 +47,8 @@ const (
 	DefaultSparkUIName       = "spark-ui"
 )
 const (
-	FeaturesOlapKey           = "olap"
-	DefaultDorisPortName      = "query-port"
-	DefaultDorisAdminUser     = "root"
-	DefaultDorisAdminPassword = ""
-	DefaultDorisDatabaseName  = "nineinfra"
+	FeaturesOlapKey      = "olap"
+	DefaultDorisPortName = "query-port"
 )
 
 var (
@@ -69,6 +67,13 @@ var (
 	DefaultStorageClass          = "nineinfra-default"
 	DefaultToolNifiSideCarTag    = "1.36.1"
 	DefaultAccessHost            = ""
+	DefaultDorisAdminUser        = "root"
+	DefaultDorisAdminPassword    = ""
+	DefaultDorisDatabaseName     = "nineinfra"
+	DefaultDorisBERepo           = "selectdb/doris.be-ubuntu"
+	DefaultDorisBEVersion        = "2.0.2"
+	DefaultDorisBERepoPullPolicy = "IfNotPresent"
+	DefaultDorisBEStoragePVSize  = 100
 )
 
 var DefaultChartList = map[string]string{
@@ -104,7 +109,7 @@ var NineClusterProjectNameSuffix = map[string]string{
 	"minio":      "-nine-ss-0",
 	"postgresql": "-nine-pg",
 	"doris-fe":   "-nine-doris-fe",
-	"doris-be":   "-nine-doris-fe",
+	"doris-be":   "-nine-doris-be",
 }
 
 var NineClusterProjectWorkloadList = map[string]string{
