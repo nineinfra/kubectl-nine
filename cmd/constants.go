@@ -47,6 +47,7 @@ const (
 )
 const (
 	FeaturesOlapKey          = "olap"
+	FeaturesOlapValueDoris   = "doris"
 	DefaultDorisPortName     = "query-port"
 	DefaultOlapPVCLabelKey   = "app.doris.ownerreference/name"
 	DefaultDorisBENameSuffix = "-doris-be"
@@ -130,8 +131,15 @@ var NineClusterProjectWorkloadList = map[string]string{
 	"metastore":  "statefulset",
 	"minio":      "statefulset",
 	"postgresql": "cluster",
-	"doris-fe":   "statefulset",
-	"doris-be":   "statefulset",
+}
+
+var NineClusterOlapList = map[string]interface{}{
+	FeaturesOlapValueDoris: NineClusterOlapDorisWorkloadList,
+}
+
+var NineClusterOlapDorisWorkloadList = map[string]string{
+	"doris-fe": "statefulset",
+	"doris-be": "statefulset",
 }
 
 var NineToolList = map[string]interface{}{

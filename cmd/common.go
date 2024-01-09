@@ -23,6 +23,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 )
@@ -290,8 +291,14 @@ func PrintToolAccessInfo(name string, ns string) string {
 	}
 }
 
-func PrintClusterProjectList(name string, namespace string) {
-	for k, v := range NineClusterProjectWorkloadList {
+func PrintClusterProjectWorkloadList(name string, namespace string, list map[string]string) {
+	sortedList := make([]string, 0)
+	for k := range list {
+		sortedList = append(sortedList, k)
+	}
+	sort.Strings(sortedList)
+	for _, k := range sortedList {
+		v := list[k]
 		switch v {
 		case "statefulset":
 			ready, age := PrintStsReadyAndAge(NineWorkLoadName(name, k), namespace)
@@ -307,8 +314,23 @@ func PrintClusterProjectList(name string, namespace string) {
 	}
 }
 
+func PrintClusterProjectList(cluster *nineinfrav1alpha1.NineCluster) {
+	PrintClusterProjectWorkloadList(cluster.Name, cluster.Namespace, NineClusterProjectWorkloadList)
+	if cluster.Spec.Features != nil {
+		if value, ok := cluster.Spec.Features[FeaturesOlapKey]; ok {
+			PrintClusterProjectWorkloadList(cluster.Name, cluster.Namespace, NineClusterOlapList[value].(map[string]string))
+		}
+	}
+}
+
 func PrintClusterToolList(name string, namespace string) {
-	for k, v := range NineToolList {
+	sortedList := make([]string, 0)
+	for k := range NineToolList {
+		sortedList = append(sortedList, k)
+	}
+	sort.Strings(sortedList)
+	for _, k := range sortedList {
+		v := NineToolList[k]
 		if !CheckHelmReleaseExist(NineToolResourceName(k), namespace) {
 			continue
 		}
@@ -355,7 +377,7 @@ func PrintClusterList(clusters *nineinfrav1alpha1.NineClusterList) {
 
 func PrintNineCluster(cluster *nineinfrav1alpha1.NineCluster) {
 	fmt.Printf(PrintFmtStrClusterProjectList, "NAME", "PROJECT", "TYPE", "READY", "AGE")
-	PrintClusterProjectList(cluster.Name, cluster.Namespace)
+	PrintClusterProjectList(cluster)
 }
 
 func GiveSuggestionsByError(err error) string {
