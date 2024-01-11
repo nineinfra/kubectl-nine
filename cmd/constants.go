@@ -1,14 +1,16 @@
 package cmd
 
 const (
-	DefaultNamespace       = "nineinfra"
-	DefaultPVCLabelKey     = "v1.min.io/tenant"
-	DefaultNineSuffix      = "-nine"
-	DefaultThriftPortName  = "thrift-binary"
-	DefaultCMDHelm         = "helm"
-	DefaultCMDDirectPV     = "kubectl-directpv"
-	DefaultNineInfraPrefix = "nineinfra"
-	GiMultiplier           = 1024 * 1024 * 1024
+	DefaultNamespace         = "nineinfra"
+	DefaultPVCLabelKey       = "v1.min.io/tenant"
+	DefaultNineSuffix        = "-nine"
+	DefaultThriftPortName    = "thrift-binary"
+	DefaultCMDHelm           = "helm"
+	DefaultCMDDirectPV       = "kubectl-directpv"
+	DefaultNineInfraPrefix   = "nineinfra"
+	GiMultiplier             = 1024 * 1024 * 1024
+	DefaultSqlAccessUserName = "kyuubi"
+	DefaultSqlAccessPassword = "kyuubi"
 )
 const (
 	DefaultPGRWSVCNameSuffix             = DefaultNineSuffix + "-pg-rw"

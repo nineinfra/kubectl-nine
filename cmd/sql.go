@@ -35,6 +35,8 @@ type SqlOptions struct {
 	TTY       bool
 	Silent    bool
 	Statement string
+	UserName  string
+	Password  string
 }
 
 type sqlCmd struct {
@@ -67,9 +69,12 @@ func newClusterSqlCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	cmd = DisableHelp(cmd)
 	f := cmd.Flags()
 	f.StringVarP(&c.sqlOpts.NS, "namespace", "n", "", "k8s namespace for this ninecluster")
+	f.StringVarP(&c.sqlOpts.UserName, "username", "u", DefaultSqlAccessUserName, "the username the sql access")
+	f.StringVarP(&c.sqlOpts.Password, "password", "p", DefaultSqlAccessPassword, "the password the sql access")
 	f.StringVar(&DefaultAccessHost, "access-host", "", "access host ip for out cluster access,such as web access")
 	f.BoolVar(&c.sqlOpts.TTY, "tty", false, "interactive SQL operation")
 	f.BoolVar(&c.sqlOpts.Silent, "silent", true, "be more silent")
+	f.BoolVar(&DEBUG, "debug", false, "debug mode")
 	f.StringVarP(&c.sqlOpts.Statement, "statement", "s", "show databases", "simple sql statement")
 	return cmd
 }
@@ -93,6 +98,8 @@ func (s *sqlCmd) interactiveSQL() error {
 	}
 	pBeelineCmd := []string{"/opt/kyuubi/bin/beeline",
 		"-u", fmt.Sprintf("jdbc:hive2://%s:%d", thriftIP, thriftPort),
+		"-n", s.sqlOpts.UserName,
+		"-p", s.sqlOpts.Password,
 		"--silent", fmt.Sprintf("%v", s.sqlOpts.Silent)}
 	_, err = runExecCommand(podName, s.sqlOpts.NS, true, pBeelineCmd)
 	if err != nil {
@@ -107,6 +114,8 @@ func (s *sqlCmd) directSQL() error {
 		return errors.New("invalid Thrift Access Info")
 	}
 	conf := gohive.NewConnectConfiguration()
+	conf.Username = s.sqlOpts.UserName
+	conf.Password = s.sqlOpts.Password
 	conn, err := gohive.Connect(thriftIP, int(thriftPort), "NONE", conf)
 	if err != nil {
 		return err
