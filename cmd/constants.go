@@ -2,7 +2,9 @@ package cmd
 
 const (
 	DefaultNamespace         = "nineinfra"
-	DefaultPVCLabelKey       = "v1.min.io/tenant"
+	DefaultMinioPVCLabelKey  = "v1.min.io/tenant"
+	DefaultClusterLabelKey   = "cluster"
+	DefaultAppLabelKey       = "app"
 	DefaultNineSuffix        = "-nine"
 	DefaultThriftPortName    = "thrift-binary"
 	DefaultCMDHelm           = "helm"
@@ -49,6 +51,7 @@ const (
 )
 const (
 	FeaturesOlapKey          = "olap"
+	FeaturesKyuubiHAKey      = "kyuubi-ha"
 	FeaturesOlapValueDoris   = "doris"
 	DefaultDorisPortName     = "query-port"
 	DefaultOlapPVCLabelKey   = "app.doris.ownerreference/name"

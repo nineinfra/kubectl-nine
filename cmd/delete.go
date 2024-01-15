@@ -72,8 +72,12 @@ func (d *deleteCmd) validate(args []string) error {
 	return ValidateClusterArgs("delete", args)
 }
 
-func constructPVCLabel(name string) string {
-	return DefaultPVCLabelKey + "=" + name
+func constructMinioPVCLabel(name string) string {
+	return DefaultMinioPVCLabelKey + "=" + name
+}
+
+func constructZookeeperPVCLabel(name string) string {
+	return fmt.Sprintf("%s=%s,%s=%s", DefaultClusterLabelKey, name, DefaultAppLabelKey, "zookeeper")
 }
 
 func deleteNineInfraPVC(name string, namespace string) error {
@@ -85,8 +89,25 @@ func deleteNineInfraPVC(name string, namespace string) error {
 	if err != nil {
 		return err
 	}
+	// delete minio pvc
+	err = c.CoreV1().PersistentVolumeClaims(namespace).DeleteCollection(context.TODO(), metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: constructMinioPVCLabel(name)})
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
-	err = c.CoreV1().PersistentVolumeClaims(namespace).DeleteCollection(context.TODO(), metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: constructPVCLabel(name)})
+func deleteZookeeperPVC(name string, namespace string) error {
+	if name == "" || namespace == "" {
+		return nil
+	}
+	path, _ := rootCmd.Flags().GetString(kubeconfig)
+	c, err := GetKubeClient(path)
+	if err != nil {
+		return err
+	}
+	// delete minio pvc
+	err = c.CoreV1().PersistentVolumeClaims(namespace).DeleteCollection(context.TODO(), metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: constructZookeeperPVCLabel(name)})
 	if err != nil {
 		return err
 	}
@@ -136,6 +157,10 @@ func (d *deleteCmd) run(args []string) error {
 				return err
 			}
 			err = deleteOlapPVC(d.deleteOpts.Name+DefaultNineSuffix, d.deleteOpts.NS)
+			if err != nil {
+				return err
+			}
+			err = deleteZookeeperPVC(d.deleteOpts.Name+DefaultNineSuffix, d.deleteOpts.NS)
 			if err != nil {
 				return err
 			}

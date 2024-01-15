@@ -10,6 +10,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"strconv"
 	"strings"
 )
 
@@ -86,6 +87,7 @@ type ClusterOptions struct {
 	OlapVolume           int
 	OlapStoragePool      string
 	OlapExecutors        int32
+	EnableKyuubiHA       bool
 	MetastoreStoragePool string
 	Olap                 string
 }
@@ -154,6 +156,7 @@ func newClusterCreateCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	f.StringVarP(&c.clusterOpts.OlapStoragePool, "olap-storage-pool", "o", "", "storage pool for olap")
 	f.Int32VarP(&c.clusterOpts.OlapExecutors, "olap-executors", "r", 3, "num of the olap executors")
 	f.StringVarP(&c.clusterOpts.MetastoreStoragePool, "metastore-storage-pool", "m", "", "storage pool for metastore")
+	f.BoolVar(&c.clusterOpts.EnableKyuubiHA, "enable-kyuubi-ha", false, "enable kyuubi with high availability")
 	f.BoolVar(&DEBUG, "debug", false, "print debug information")
 	f.StringVarP(&c.clusterOpts.NS, "namespace", "n", "", "k8s namespace for this ninecluster")
 	return cmd
@@ -206,6 +209,9 @@ func (c *createCmd) run(_ []string) error {
 	if c.clusterOpts.MetastoreStoragePool != "" {
 		PGClusterInfo.Resource.StorageClass = c.clusterOpts.MetastoreStoragePool
 		userClusterSet = append(userClusterSet, PGClusterInfo)
+	}
+	if c.clusterOpts.EnableKyuubiHA {
+		features[FeaturesKyuubiHAKey] = strconv.FormatBool(c.clusterOpts.EnableKyuubiHA)
 	}
 	desiredNineCluster := &nineinfrav1alpha1.NineCluster{
 		ObjectMeta: metav1.ObjectMeta{
