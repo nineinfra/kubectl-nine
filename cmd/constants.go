@@ -49,10 +49,17 @@ const (
 	DefaultSparkUIPort       = 4040
 	DefaultSparkUIName       = "spark-ui"
 )
+
 const (
-	FeaturesOlapKey          = "olap"
-	FeaturesKyuubiHAKey      = "kyuubi-ha"
-	FeaturesOlapValueDoris   = "doris"
+	FeaturesOlapKey           = "olap"
+	FeaturesKyuubiHAKey       = "kyuubi-ha"
+	FeaturesStorageKey        = "storage"
+	FeaturesStorageValueHdfs  = "hdfs"
+	FeaturesStorageValueMinio = "minio"
+	FeaturesOlapValueDoris    = "doris"
+)
+
+const (
 	DefaultDorisPortName     = "query-port"
 	DefaultOlapPVCLabelKey   = "app.doris.ownerreference/name"
 	DefaultDorisBENameSuffix = "-doris-be"
@@ -93,6 +100,11 @@ var (
 	DefaultMinioVersion          = "RELEASE.2023-09-07T02-05-02Z"
 	DefaultMinioRepoPullPolicy   = "IfNotPresent"
 	DefaultDataBaseVersion       = "v16.0.0"
+)
+
+var (
+	OlapsSupported       = "doris"
+	MainStorageSupported = []string{FeaturesStorageValueHdfs, FeaturesStorageValueMinio}
 )
 
 var DefaultChartList = map[string]string{

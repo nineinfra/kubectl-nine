@@ -80,6 +80,10 @@ func constructZookeeperPVCLabel(name string) string {
 	return fmt.Sprintf("%s=%s,%s=%s", DefaultClusterLabelKey, name, DefaultAppLabelKey, "zookeeper")
 }
 
+func constructHdfsPVCLabel(name string) string {
+	return fmt.Sprintf("%s=%s,%s=%s", DefaultClusterLabelKey, name, DefaultAppLabelKey, "hdfs")
+}
+
 func deleteNineInfraPVC(name string, namespace string) error {
 	if name == "" || namespace == "" {
 		return nil
@@ -91,6 +95,11 @@ func deleteNineInfraPVC(name string, namespace string) error {
 	}
 	// delete minio pvc
 	err = c.CoreV1().PersistentVolumeClaims(namespace).DeleteCollection(context.TODO(), metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: constructMinioPVCLabel(name)})
+	if err != nil {
+		return err
+	}
+	// delete hdfs pvc
+	err = c.CoreV1().PersistentVolumeClaims(namespace).DeleteCollection(context.TODO(), metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: constructHdfsPVCLabel(name)})
 	if err != nil {
 		return err
 	}
@@ -106,11 +115,12 @@ func deleteZookeeperPVC(name string, namespace string) error {
 	if err != nil {
 		return err
 	}
-	// delete minio pvc
+
 	err = c.CoreV1().PersistentVolumeClaims(namespace).DeleteCollection(context.TODO(), metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: constructZookeeperPVCLabel(name)})
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 

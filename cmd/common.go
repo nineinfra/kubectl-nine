@@ -591,3 +591,14 @@ func CheckStoragePoolValid(sp string) bool {
 	}
 	return true
 }
+
+func CheckMainStorageValid(ms string) bool {
+	if ms != "" {
+		for _, v := range MainStorageSupported {
+			if strings.EqualFold(v, ms) {
+				return true
+			}
+		}
+	}
+	return false
+}

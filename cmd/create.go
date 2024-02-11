@@ -20,7 +20,6 @@ const (
 )
 
 var (
-	olapsSupported     = "doris"
 	DorisFeClusterInfo = nineinfrav1alpha1.ClusterInfo{
 		Type:    nineinfrav1alpha1.DorisFEClusterType,
 		Version: DefaultDorisFEVersion,
@@ -88,6 +87,7 @@ type ClusterOptions struct {
 	OlapStoragePool      string
 	OlapExecutors        int32
 	EnableKyuubiHA       bool
+	MainStorage          string
 	MetastoreStoragePool string
 	Olap                 string
 }
@@ -104,8 +104,8 @@ func (t ClusterOptions) Validate() error {
 	if t.DataVolume <= 0 {
 		return errors.New("--datavolume flag is required")
 	}
-	if t.Olap != "" && !strings.Contains(olapsSupported, t.Olap) {
-		return errors.New(fmt.Sprintf("invalid olap:%s,support [%s]", t.Olap, olapsSupported))
+	if t.Olap != "" && !strings.Contains(OlapsSupported, t.Olap) {
+		return errors.New(fmt.Sprintf("invalid olap:%s,support [%s]", t.Olap, OlapsSupported))
 	}
 	if t.OlapVolume <= 10 {
 		return errors.New("olap volume size should not be less than 10")
@@ -123,6 +123,11 @@ func (t ClusterOptions) Validate() error {
 	if t.MetastoreStoragePool != "" {
 		if !CheckStoragePoolValid(t.MetastoreStoragePool) {
 			return errors.New(fmt.Sprintf("metastore storage pool %s may be not exist", t.MetastoreStoragePool))
+		}
+	}
+	if t.MainStorage != "" {
+		if !CheckMainStorageValid(t.MainStorage) {
+			return errors.New(fmt.Sprintf("main storage pool %s is not supported,support [%s]", t.MainStorage, strings.Join(MainStorageSupported, ",")))
 		}
 	}
 	return nil
@@ -150,7 +155,8 @@ func newClusterCreateCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	cmd = DisableHelp(cmd)
 	f := cmd.Flags()
 	f.IntVarP(&c.clusterOpts.DataVolume, "data-volume", "v", 32, "total raw data volumes of the ninecluster,the unit is Gi, e.g. 16")
-	f.StringVarP(&c.clusterOpts.Olap, "olap", "a", "", fmt.Sprintf("add olap to the ninecluster,support [%s]", olapsSupported))
+	f.StringVar(&c.clusterOpts.MainStorage, "main-storage", "minio", fmt.Sprintf("main storage for the ninecluster,support [%s]", strings.Join(MainStorageSupported, ",")))
+	f.StringVarP(&c.clusterOpts.Olap, "olap", "a", "", fmt.Sprintf("add olap to the ninecluster,support [%s]", OlapsSupported))
 	f.IntVar(&c.clusterOpts.OlapVolume, "olap-volume", 100, "olap storage volume size")
 	f.StringVarP(&c.clusterOpts.StoragePool, "storage-pool", "s", "", "storage pool for the ninecluster")
 	f.StringVarP(&c.clusterOpts.OlapStoragePool, "olap-storage-pool", "o", "", "storage pool for olap")
@@ -213,6 +219,9 @@ func (c *createCmd) run(_ []string) error {
 	if c.clusterOpts.EnableKyuubiHA {
 		features[FeaturesKyuubiHAKey] = strconv.FormatBool(c.clusterOpts.EnableKyuubiHA)
 	}
+	
+	features[FeaturesStorageKey] = c.clusterOpts.MainStorage
+
 	desiredNineCluster := &nineinfrav1alpha1.NineCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      c.clusterOpts.Name,
