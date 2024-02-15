@@ -320,6 +320,9 @@ func PrintClusterProjectList(cluster *nineinfrav1alpha1.NineCluster) {
 		if value, ok := cluster.Spec.Features[FeaturesOlapKey]; ok {
 			PrintClusterProjectWorkloadList(cluster.Name, cluster.Namespace, NineClusterOlapList[value].(map[string]string))
 		}
+		if value, ok := cluster.Spec.Features[FeaturesStorageKey]; ok {
+			PrintClusterProjectWorkloadList(cluster.Name, cluster.Namespace, NineClusterStorageList[value].(map[string]string))
+		}
 	}
 }
 
@@ -601,4 +604,24 @@ func CheckMainStorageValid(ms string) bool {
 		}
 	}
 	return false
+}
+
+func CheckEndpointsReady(name string, namespace string, needReplicas int) (error, bool, *corev1.Endpoints) {
+	path, _ := rootCmd.Flags().GetString(kubeconfig)
+	client, err := GetKubeClient(path)
+	if err != nil {
+		return err, false, nil
+	}
+	existsEndpoints, err := client.CoreV1().Endpoints(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+	if err != nil && k8serrors.IsNotFound(err) {
+		return nil, false, existsEndpoints
+	} else if err != nil {
+		return err, false, existsEndpoints
+	}
+	if len(existsEndpoints.Subsets) == 0 ||
+		(len(existsEndpoints.Subsets) > 0 &&
+			len(existsEndpoints.Subsets[0].Addresses) < int(needReplicas)) {
+		return nil, false, existsEndpoints
+	}
+	return nil, true, existsEndpoints
 }

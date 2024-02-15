@@ -34,7 +34,8 @@ const (
 	DefaultToolAirflowDiskSize           = "20Gi"
 	DefaultToolNifiUserName              = "admin"
 	DefaultToolNifiUserPWD               = "nineinfraadmin"
-	DefaultZookeeperSVCName              = DefaultToolsNamePrefix + "zookeeper-headless"
+	DefaultZookeeperHLSVCNameSuffix      = "zookeeper-headless"
+	DefaultZookeeperSVCName              = DefaultToolsNamePrefix + DefaultZookeeperHLSVCNameSuffix
 	DefaultAirflowPVCLabelKey            = "release"
 	DefaultZookeeperPVCLabelKey          = "app.kubernetes.io/instance"
 )
@@ -64,6 +65,10 @@ const (
 	DefaultOlapPVCLabelKey   = "app.doris.ownerreference/name"
 	DefaultDorisBENameSuffix = "-doris-be"
 	DefaultDorisFENameSuffix = "-doris-fe"
+)
+
+var (
+	DefaultZookeeperReplicas = 3
 )
 
 var (
@@ -109,11 +114,14 @@ var (
 
 var DefaultChartList = map[string]string{
 	"cloudnative-pg":     "0.19.1",
-	"kyuubi-operator":    "0.181.4",
-	"metastore-operator": "0.313.3",
+	"kyuubi-operator":    "0.7.0",
+	"metastore-operator": "0.7.0",
+	"zookeeper-operator": "0.7.0",
+	"hdfs-operator":      "0.7.0",
 	"minio-directpv":     "4.0.8",
 	"minio-operator":     "5.0.9",
-	"nineinfra":          "0.4.4",
+	"doris-operator":     "1.3.1",
+	"nineinfra":          "0.7.0",
 }
 
 var DefaultToolsChartList = map[string]string{
@@ -135,18 +143,21 @@ var NineInfraDeploymentAlias = map[string]string{
 }
 
 var NineClusterProjectNameSuffix = map[string]string{
-	"kyuubi":     "-nine-kyuubi",
-	"metastore":  "-nine-metastore",
-	"minio":      "-nine-ss-0",
-	"postgresql": "-nine-pg",
-	"doris-fe":   "-nine-doris-fe",
-	"doris-be":   "-nine-doris-be",
+	"kyuubi":      "-nine-kyuubi",
+	"metastore":   "-nine-metastore",
+	"minio":       "-nine-ss-0",
+	"postgresql":  "-nine-pg",
+	"doris-fe":    "-nine-doris-fe",
+	"doris-be":    "-nine-doris-be",
+	"namenode":    "-nine-hdfs-namenode",
+	"datanode":    "-nine-hdfs-datanode",
+	"journalnode": "-nine-hdfs-journalnode",
+	"zookeeper":   "-nine-zookeeper",
 }
 
 var NineClusterProjectWorkloadList = map[string]string{
 	"kyuubi":     "statefulset",
 	"metastore":  "statefulset",
-	"minio":      "statefulset",
 	"postgresql": "cluster",
 }
 
@@ -154,9 +165,25 @@ var NineClusterOlapList = map[string]interface{}{
 	FeaturesOlapValueDoris: NineClusterOlapDorisWorkloadList,
 }
 
+var NineClusterStorageList = map[string]interface{}{
+	FeaturesStorageValueMinio: NineClusterStorageMinioWorkloadList,
+	FeaturesStorageValueHdfs:  NineClusterStorageHdfsWorkloadList,
+}
+
 var NineClusterOlapDorisWorkloadList = map[string]string{
 	"doris-fe": "statefulset",
 	"doris-be": "statefulset",
+}
+
+var NineClusterStorageHdfsWorkloadList = map[string]string{
+	"journalnode": "statefulset",
+	"datanode":    "statefulset",
+	"namenode":    "statefulset",
+	"zookeeper":   "statefulset",
+}
+
+var NineClusterStorageMinioWorkloadList = map[string]string{
+	"minio": "statefulset",
 }
 
 var NineToolList = map[string]interface{}{

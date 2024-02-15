@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 	"io"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"net"
 	"os"
@@ -48,6 +49,7 @@ type toolsCmd struct {
 	deletePVC   bool
 	chartPath   string
 	storagepool string
+	zkSvcName   string
 }
 
 type DatabasesConnection struct {
@@ -265,7 +267,7 @@ func (t *toolsCmd) genSupersetParameters(relName string, parameters []string) []
 func (t *toolsCmd) genZookeeperParameters(relName string, parameters []string) []string {
 	params := append(parameters, []string{"--set", fmt.Sprintf("fullnameOverride=%s", relName)}...)
 	params = append(params, []string{"--set", fmt.Sprintf("persistence.storageClass=%s", t.storagepool)}...)
-	params = append(params, []string{"--set", "replicaCount=3"}...)
+	params = append(params, []string{"--set", fmt.Sprintf("replicaCount=%d", DefaultZookeeperReplicas)}...)
 	params = append(params, []string{"--set", "podAntiAffinityPreset=hard"}...)
 	return params
 }
@@ -288,7 +290,7 @@ func (t *toolsCmd) genNifiParameters(relName string, parameters []string) []stri
 	params = append(params, []string{"--set", fmt.Sprintf("service.type=%s", DefaultToolNifiSvcType)}...)
 	params = append(params, []string{"--set", fmt.Sprintf("service.nodePort=%d", DefaultToolNifiSvcNodePort)}...)
 	params = append(params, []string{"--set", fmt.Sprintf("properties.webProxyHost=%s:%d", nodePortIp, DefaultToolNifiSvcNodePort)}...)
-	params = append(params, []string{"--set", fmt.Sprintf("zookeeper.url=%s", DefaultZookeeperSVCName)}...)
+	params = append(params, []string{"--set", fmt.Sprintf("zookeeper.url=%s", t.zkSvcName)}...)
 	params = append(params, []string{"--set", fmt.Sprintf("auth.singleUser.username=%s", DefaultToolNifiUserName)}...)
 	params = append(params, []string{"--set", fmt.Sprintf("auth.singleUser.password=%s", DefaultToolNifiUserPWD)}...)
 	params = append(params, []string{"--set", fmt.Sprintf("sidecar.tag=%s", DefaultToolNifiSideCarTag)}...)
@@ -406,12 +408,30 @@ func (t *toolsCmd) installSuperset(parameters []string) error {
 	return nil
 }
 
+func (t *toolsCmd) checkZookeeperCluster() bool {
+	epName := fmt.Sprintf("%s%s", t.nineName, DefaultZookeeperHLSVCNameSuffix)
+	err, ready, _ := CheckEndpointsReady(epName, t.ns, DefaultZookeeperReplicas)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return false
+	}
+	if k8serrors.IsNotFound(err) {
+		return false
+	}
+	return ready
+}
+
 func (t *toolsCmd) installZookeeper(parameters []string) error {
+	if t.checkZookeeperCluster() {
+		fmt.Printf("A zookeeper cluster exists,no need to install!\n")
+		t.zkSvcName = fmt.Sprintf("%s%s", t.nineName, DefaultZookeeperHLSVCNameSuffix)
+		return nil
+	}
 	relName := DefaultToolsNamePrefix + DefaultToolZookeeperName
 	err := HelmInstallWithParameters(relName, "", t.chartPath, DefaultToolZookeeperName, DefaultToolsChartList[DefaultToolZookeeperName], t.ns, t.genZookeeperParameters(relName, parameters)...)
 	if err != nil {
 		return err
 	}
+	t.zkSvcName = DefaultZookeeperSVCName
 	return nil
 }
 
