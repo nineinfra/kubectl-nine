@@ -64,7 +64,7 @@ var driveStatusValues = []string{
 var (
 	outputFile            = "drives.yaml"
 	nodeListTimeout       = 2 * time.Minute
-	subCommandList        = "create,delete,list"
+	subCommandList        = "create,delete,list,clean,remove"
 	storagePoolsSupported = "nineinfra-default,nineinfra-high,nineinfra-medium,nineinfra-low"
 )
 
@@ -107,7 +107,7 @@ func newStorageCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	f := cmd.Flags()
 	f.StringSliceVarP(&c.nodesArgs, "nodes", "n", c.nodesArgs, "discover drives from given nodes; supports ellipses pattern e.g. node{1...10}")
 	f.StringSliceVarP(&c.drivesArgs, "drives", "d", c.drivesArgs, "discover drives by given names; supports ellipses pattern e.g. sd{a...z}")
-	f.StringVarP(&c.subCommand, "command", "c", "", fmt.Sprintf("command for tools,[%s] are supported now", toolsSubCommandList))
+	f.StringVarP(&c.subCommand, "command", "c", "", fmt.Sprintf("command for storage,[%s] are supported now", subCommandList))
 	f.BoolVar(&c.allFlag, "all", c.allFlag, "If present, include non-formattable devices in the display")
 	f.StringVar(&outputFile, "output-file", outputFile, "output file to write the init config")
 	f.StringVar(&c.storagePool, "storage-pool", "nineinfra-default", fmt.Sprintf("specify the storage pool name,support [%s]", storagePoolsSupported))
@@ -129,7 +129,11 @@ func (d *storageCmd) validate(args []string) error {
 		if !strings.Contains(storagePoolsSupported, d.storagePool) {
 			return fmt.Errorf("please provide valid storage pool name:%s,support[%s]", d.storagePool, storagePoolsSupported)
 		}
-	case "delelte":
+	case "delete":
+		if !strings.Contains(storagePoolsSupported, d.storagePool) {
+			return fmt.Errorf("please provide valid storage pool name:%s,support[%s]", d.storagePool, storagePoolsSupported)
+		}
+	case "clean":
 		if !strings.Contains(storagePoolsSupported, d.storagePool) {
 			return fmt.Errorf("please provide valid storage pool name:%s,support[%s]", d.storagePool, storagePoolsSupported)
 		}
@@ -284,6 +288,40 @@ func (d *storageCmd) runCreateCmd() error {
 	return nil
 }
 
+func (d *storageCmd) runCleanCmd() error {
+	path, _ := rootCmd.Flags().GetString(kubeconfig)
+	client, err := GetKubeClient(path)
+	if err != nil {
+		return err
+	}
+	pvList, err := GetReleasedAndDeletePolicyPVListByStorageClass(client, d.storagePool)
+	if err != nil {
+		return err
+	}
+	for _, pv := range pvList.Items {
+		err = client.CoreV1().PersistentVolumes().Delete(context.TODO(), pv.Name, metav1.DeleteOptions{})
+		if err != nil {
+			return err
+		}
+		fmt.Printf("Delete the Released and Deleted pv %s in the storagepool %s successfully!\n", pv.Name, d.storagePool)
+	}
+
+	return nil
+}
+
+func (d *storageCmd) runDeleteCmd() error {
+	path, _ := rootCmd.Flags().GetString(kubeconfig)
+	client, err := GetKubeClient(path)
+	if err != nil {
+		return err
+	}
+	err = client.StorageV1().StorageClasses().Delete(context.TODO(), d.storagePool, metav1.DeleteOptions{})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (d *storageCmd) runListCmd() error {
 	var parameters []string
 
@@ -303,8 +341,25 @@ func (d *storageCmd) run(_ []string) error {
 			return err
 		}
 	case "delete":
+		err := d.runDeleteCmd()
+		if err != nil {
+			return err
+		}
+	case "clean":
+		err := d.runCleanCmd()
+		if err != nil {
+			return err
+		}
+	case "remove":
+		err := d.runCleanCmd()
+		if err != nil {
+			return err
+		}
 	case "list":
-		d.runListCmd()
+		err := d.runListCmd()
+		if err != nil {
+			return err
+		}
 	default:
 		var parameters []string
 		if d.subArg != "" {

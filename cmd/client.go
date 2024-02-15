@@ -5,6 +5,7 @@ import (
 	pgoperatorv1 "github.com/cloudnative-pg/client/clientset/versioned"
 	directpvv1beta1 "github.com/minio/directpv/apis/directpv.min.io/v1beta1"
 	nineinfrav1alpha1 "github.com/nineinfra/nineinfra/client/clientset/versioned"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -27,6 +28,25 @@ func GetKubeClient(path string) (*kubernetes.Clientset, error) {
 		return nil, err
 	}
 	return kubeClientset, nil
+}
+
+func GetKubeDynamicClient(path string) (*dynamic.DynamicClient, error) {
+	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+	if path != "" {
+		loadingRules.ExplicitPath = path
+	}
+	configOverrides := &clientcmd.ConfigOverrides{}
+	kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
+	config, err := kubeConfig.ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	dyClient, err := dynamic.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+	return dyClient, nil
 }
 
 func GetKubeClientWithConfig(path string) (*kubernetes.Clientset, *restclient.Config, error) {

@@ -558,6 +558,28 @@ func GetReleasedAndDeletePolicyPVList(clientset *kubernetes.Clientset, claimPref
 	return &corev1.PersistentVolumeList{Items: specificPVList}, nil
 }
 
+func GetReleasedAndDeletePolicyPVListByStorageClass(clientset *kubernetes.Clientset, sc string) (*corev1.PersistentVolumeList, error) {
+	if sc == "" {
+		return nil, errors.New("invalid parametes")
+	}
+
+	pvList, err := clientset.CoreV1().PersistentVolumes().List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	var specificPVList []corev1.PersistentVolume
+	for _, pv := range pvList.Items {
+		if (pv.Status.Phase == corev1.VolumeReleased || pv.Status.Phase == corev1.VolumeFailed) &&
+			pv.Spec.PersistentVolumeReclaimPolicy == corev1.PersistentVolumeReclaimDelete &&
+			strings.EqualFold(pv.Spec.StorageClassName, sc) {
+			specificPVList = append(specificPVList, pv)
+		}
+	}
+
+	return &corev1.PersistentVolumeList{Items: specificPVList}, nil
+}
+
 func GetReadyDirectPVVolumes(dpclient *directpvv1beta1.DirectpvV1beta1Client, ns string, podNamePrefix string) (*directpvv1beta1.DirectPVVolumeList, error) {
 	metav1.AddToGroupVersion(directpvv1beta1.Scheme, directpvv1beta1.SchemeGroupVersion)
 	utilruntime.Must(directpvv1beta1.AddToScheme(directpvv1beta1.Scheme))

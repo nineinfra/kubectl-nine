@@ -112,6 +112,24 @@ var (
 	MainStorageSupported = []string{FeaturesStorageValueHdfs, FeaturesStorageValueMinio}
 )
 
+var NineInfraCrdList = []string{
+	"hdfsclusters.hdfs.nineinfra.tech",
+	"kyuubiclusters.kyuubi.nineinfra.tech",
+	"metastoreclusters.metastore.nineinfra.tech",
+	"nineclusters.nine.nineinfra.tech",
+	"zookeeperclusters.zookeeper.nineinfra.tech",
+	"backups.postgresql.cnpg.io",
+	"clusters.postgresql.cnpg.io",
+	"poolers.postgresql.cnpg.io",
+	"scheduledbackups.postgresql.cnpg.io",
+	"dorisclusters.doris.selectdb.com",
+	"directpvdrives.directpv.min.io",
+	"directpvvolumes.directpv.min.io",
+	"directpvinitrequests.directpv.min.io",
+	"directpvnodes.directpv.min.io",
+	"tenants.minio.min.io",
+}
+
 var DefaultChartList = map[string]string{
 	"cloudnative-pg":     "0.19.1",
 	"kyuubi-operator":    "0.7.0",
@@ -140,6 +158,9 @@ var NineInfraDeploymentAlias = map[string]string{
 	"minio-operator":                "minio-operator",
 	"controller":                    "directpv-controller",
 	"nineinfra-deployment":          "nineinfra",
+	"doris-operator":                "doris-operator",
+	"hdfs-operator-deployment":      "hdfs-operator",
+	"zookeeper-operator-deployment": "zookeeper-operator",
 }
 
 var NineClusterProjectNameSuffix = map[string]string{

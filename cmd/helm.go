@@ -50,7 +50,7 @@ func RemoveHelmRepo(repo string) error {
 		repo = DefaultHelmRepo
 	}
 	_, errput, err := runCommand("helm", "repo", "remove", DefaultHelmRepoName, repo)
-	if err != nil && !strings.Contains(errput, "not found") {
+	if err != nil && !strings.Contains(errput, fmt.Sprintf("no repo named")) {
 		return err
 	}
 	fmt.Printf("Remove repo %s successfully\n", repo)
@@ -73,7 +73,7 @@ func InitHelm() error {
 func HelmInstall(name string, repoName string, chartPath string, chart string, version string, namespace string, flags string) error {
 	if repoName == "" {
 		if chartPath != "" {
-			chart = chartPath + "/" + ChartName2TarName(chart)
+			chart = chartPath + "/" + ChartName2TarName(chart, 0)
 		} else {
 			repoName = DefaultHelmRepoName
 			chart = repoName + "/" + chart
@@ -94,9 +94,16 @@ func HelmInstall(name string, repoName string, chartPath string, chart string, v
 	return nil
 }
 
-func ChartName2TarName(chart string) string {
-	if chartVersion, ok := DefaultToolsChartList[chart]; ok {
-		return fmt.Sprintf("%s-v%s.tar.gz", chart, chartVersion)
+func ChartName2TarName(chart string, flag int) string {
+	switch flag {
+	case 0:
+		if chartVersion, ok := DefaultChartList[chart]; ok {
+			return fmt.Sprintf("%s-v%s.tar.gz", chart, chartVersion)
+		}
+	case 1:
+		if chartVersion, ok := DefaultToolsChartList[chart]; ok {
+			return fmt.Sprintf("%s-v%s.tar.gz", chart, chartVersion)
+		}
 	}
 	return ""
 }
@@ -104,7 +111,7 @@ func ChartName2TarName(chart string) string {
 func HelmInstallWithParameters(name string, repoName string, chartPath string, chart string, version string, namespace string, parameters ...string) error {
 	if repoName == "" {
 		if chartPath != "" {
-			chart = chartPath + "/" + ChartName2TarName(chart)
+			chart = chartPath + "/" + ChartName2TarName(chart, 1)
 		} else {
 			repoName = DefaultHelmRepoName
 			chart = repoName + "/" + chart
