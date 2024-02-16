@@ -98,7 +98,7 @@ func newClusterTPCDSCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	f.IntVar(&c.tpcdsOptions.DriverMemory, "driver-memory", 0, "the memory of the spark driver for the TPC-DS")
 	f.IntVar(&c.tpcdsOptions.ExecutorMemory, "executor-memory", 0, "the memory of the spark executor for the TPC-DS")
 	f.IntVar(&c.tpcdsOptions.ExecutorCores, "executor-cores", 0, "the cores of the spark executor for the TPC-DS")
-	f.StringVar(&c.tpcdsOptions.StorageClass, "storageclass", "directpv-min-io", "storageclass fo tpcds")
+	f.StringVar(&c.tpcdsOptions.StorageClass, "storageclass", "nineinfra-default", "storageclass fo tpcds")
 	f.IntVar(&c.tpcdsOptions.ShuffleDiskSize, "shuffle-disksize", 250, "shuffle disk size of executor")
 	f.IntVar(&c.tpcdsOptions.ShuffleDisks, "shuffle-disks", 1, "shuffle disks of executor")
 	f.StringVar(&c.tpcdsOptions.DeployMode, "deploy-mode", "client", "deploy mode of spark-submit")

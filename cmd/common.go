@@ -373,7 +373,7 @@ func PrintClusterList(clusters *nineinfrav1alpha1.NineClusterList) {
 	for _, cluster := range clusters.Items {
 		ready := fmt.Sprintf("%t", CheckClusterIfReady(cluster.Name, cluster.Namespace))
 		age := fmt.Sprintf("%s", HumanDuration(cluster.CreationTimestamp.Time))
-		datavolume := fmt.Sprintf("%d", cluster.Spec.DataVolume)
+		datavolume := fmt.Sprintf("%dGi", cluster.Spec.DataVolume)
 		fmt.Printf(PrintFmtStrClusterList, cluster.Name, datavolume, ready, cluster.Namespace, age)
 	}
 }
