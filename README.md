@@ -6,7 +6,7 @@
 
 1. Install Nine plugin in your k8s cluster
 ```sh
-$ curl -o /usr/local/bin/kubectl-nine -fsSL https://github.com/nineinfra/kubectl-nine/releases/download/v0.4.8/kubectl-nine_0.4.8_linux_amd64
+$ curl -o /usr/local/bin/kubectl-nine -fsSL https://github.com/nineinfra/kubectl-nine/releases/download/v0.7.0/kubectl-nine_0.7.0_linux_amd64
 $ chmod 0755 /usr/local/bin/kubectl-nine
 ```
 
@@ -26,67 +26,104 @@ $ kubectl nine install
 $ kubectl nine status
 
 NAME                    READY           AGE
-postgresql-operator     true            18h
-minio-console           true            18h
-directpv-controller     true            18h
-kyuubi-operator         true            18h
-metastore-operator      true            18h
-minio-operator          true            18h
-nineinfra               true            18h
+postgresql-operator     true            2m39s
+minio-console           true            3m5s
+directpv-controller     true            3m9s
+doris-operator          true            2m55s
+hdfs-operator           true            3m11s
+kyuubi-operator         true            2m26s
+metastore-operator      true            2m18s
+minio-operator          true            3m5s
+nineinfra               true            2m47s
+zookeeper-operator      true            3m17s
+
 ```
 
-5. Add disks for the NineInfra
+5. Create a storage pool for the NineInfra
 ```sh
 # Probe and save disk information to drives.yaml file.The parameters are planned based on the actual situation of the k8s cluster
-$ kubectl nine disk discover --nodes=nos-{13...16} --drives=vd{e...f}
-
+$ kubectl nine storage -c create --storage-pool nineinfra-default --dangerous --nodes=nos-{13...16} --drives=sd{c...f}
+ 
  Discovered node 'nos-13' ✔
  Discovered node 'nos-14' ✔
  Discovered node 'nos-15' ✔
  Discovered node 'nos-16' ✔
 
-┌─────────────────────┬────────┬───────┬──────────┬────────────┬──────┬───────────┬─────────────┐
-│ ID                  │ NODE   │ DRIVE │ SIZE     │ FILESYSTEM │ MAKE │ AVAILABLE │ DESCRIPTION │
-├─────────────────────┼────────┼───────┼──────────┼────────────┼──────┼───────────┼─────────────┤
-│ 253:64$qminruVgo... │ nos-13 │ vde   │ 1000 GiB │ xfs        │ -    │ YES       │ -           │
-│ 253:80$Ch6FZ2Ogg... │ nos-13 │ vdf   │ 1000 GiB │ xfs        │ -    │ YES       │ -           │
-│ 253:64$E59EefLG5... │ nos-14 │ vde   │ 1000 GiB │ xfs        │ -    │ YES       │ -           │
-│ 253:80$ggm4ldlhL... │ nos-14 │ vdf   │ 1000 GiB │ xfs        │ -    │ YES       │ -           │
-│ 253:64$AMrZogHry... │ nos-15 │ vde   │ 1000 GiB │ xfs        │ -    │ YES       │ -           │
-│ 253:80$YWdsmkPJD... │ nos-15 │ vdf   │ 1000 GiB │ xfs        │ -    │ YES       │ -           │
-│ 253:64$IMnKcqGGA... │ nos-16 │ vde   │ 1000 GiB │ xfs        │ -    │ YES       │ -           │
-│ 253:80$m4f/37aUP... │ nos-16 │ vdf   │ 1000 GiB │ xfs        │ -    │ YES       │ -           │
-└─────────────────────┴────────┴───────┴──────────┴────────────┴──────┴───────────┴─────────────┘
+┌─────────────────────┬───────┬───────┬─────────┬────────────┬─────────────┬───────────┬─────────────┐
+│ ID                  │ NODE  │ DRIVE │ SIZE    │ FILESYSTEM │ MAKE        │ AVAILABLE │ DESCRIPTION │
+├─────────────────────┼───────┼───────┼─────────┼────────────┼─────────────┼───────────┼─────────────┤
+│ 8:32$C9H9nKceHdl... │ nos-13│ sdc   │ 837 GiB │ xfs        │ SMC LSI2208 │ YES       │ -           │
+│ 8:48$PEwqlggXwL/... │ nos-13│ sdd   │ 837 GiB │ xfs        │ SMC LSI2208 │ YES       │ -           │
+│ 8:64$np7aYFFxYiO... │ nos-13│ sde   │ 837 GiB │ xfs        │ SMC LSI2208 │ YES       │ -           │
+│ 8:80$e6Nukqaqczo... │ nos-13│ sdf   │ 837 GiB │ xfs        │ SMC LSI2208 │ YES       │ -           │
+│ 8:32$PUW82s10No9... │ nos-14│ sdc   │ 837 GiB │ xfs        │ SMC LSI2208 │ YES       │ -           │
+│ 8:48$XATZhOxft8i... │ nos-14│ sdd   │ 837 GiB │ xfs        │ SMC LSI2208 │ YES       │ -           │
+│ 8:64$RA2WSliDuk2... │ nos-14│ sde   │ 837 GiB │ xfs        │ SMC LSI2208 │ YES       │ -           │
+│ 8:80$rnRd/XXHQb9... │ nos-14│ sdf   │ 837 GiB │ xfs        │ SMC LSI2208 │ YES       │ -           │
+│ 8:32$V2Koy98ZHuH... │ nos-15│ sdc   │ 837 GiB │ xfs        │ SMC LSI2208 │ YES       │ -           │
+│ 8:48$VSkTOOfGpnP... │ nos-15│ sdd   │ 837 GiB │ xfs        │ SMC LSI2208 │ YES       │ -           │
+│ 8:64$MwJeUa9LQDJ... │ nos-15│ sde   │ 837 GiB │ xfs        │ SMC LSI2208 │ YES       │ -           │
+│ 8:80$rtiZxtNcIbc... │ nos-15│ sdf   │ 837 GiB │ xfs        │ SMC LSI2208 │ YES       │ -           │
+│ 8:32$cT0j4bEhHSl... │ nos-16│ sdc   │ 837 GiB │ xfs        │ SMC LSI2208 │ YES       │ -           │
+│ 8:48$NhtoJpWwr4X... │ nos-16│ sdd   │ 837 GiB │ xfs        │ SMC LSI2208 │ YES       │ -           │
+│ 8:64$zjL8PF4HICC... │ nos-16│ sde   │ 837 GiB │ xfs        │ SMC LSI2208 │ YES       │ -           │
+│ 8:80$NoQZ3iBqKb8... │ nos-16│ sdf   │ 837 GiB │ xfs        │ SMC LSI2208 │ YES       │ -           │
+└─────────────────────┴───────┴───────┴─────────┴────────────┴─────────────┴───────────┴─────────────┘
+
 Generated 'drives.yaml' successfully.
 
-# Initialize selected disks.
-$ kubectl nine disk init drives.yaml --dangerous
+ ███████████████████████████████████ 100%
 
- Processed initialization request 'ab5160e6-3b1d-458b-9c79-b72a9fde8694' for node 'nos-14' ✔
- Processed initialization request '06e15423-67a6-47ae-bca3-94b6d33959f1' for node 'nos-15' ✔
- Processed initialization request '8d313b38-1ac0-4891-82a8-999087815962' for node 'nos-16' ✔
- Processed initialization request '326d2668-af14-4d1c-bdb9-676a8e833db6' for node 'nos-13' ✔
+ Processed initialization request '096c865d-ed2e-47ec-85f0-ca7999299157' for node 'nos-13' ✔
+ Processed initialization request '25237a70-e8d9-4f88-8eea-298014184bc0' for node 'nos-14' ✔
+ Processed initialization request 'adef5a4f-0bb5-4999-8652-9f3fb5b35616' for node 'nos-15' ✔
+ Processed initialization request 'a15ef873-4373-4990-9ed0-7d1411845424' for node 'nos-16' ✔
 
-
-┌──────────────────────────────────────┬────────┬───────┬─────────┐
-│ REQUEST_ID                           │ NODE   │ DRIVE │ MESSAGE │
-├──────────────────────────────────────┼────────┼───────┼─────────┤
-│ 326d2668-af14-4d1c-bdb9-676a8e833db6 │ nos-13 │ vde   │ Success │
-│ 326d2668-af14-4d1c-bdb9-676a8e833db6 │ nos-13 │ vdf   │ Success │
-│ ab5160e6-3b1d-458b-9c79-b72a9fde8694 │ nos-14 │ vde   │ Success │
-│ ab5160e6-3b1d-458b-9c79-b72a9fde8694 │ nos-14 │ vdf   │ Success │
-│ 06e15423-67a6-47ae-bca3-94b6d33959f1 │ nos-15 │ vde   │ Success │
-│ 06e15423-67a6-47ae-bca3-94b6d33959f1 │ nos-15 │ vdf   │ Success │
-│ 8d313b38-1ac0-4891-82a8-999087815962 │ nos-16 │ vde   │ Success │
-│ 8d313b38-1ac0-4891-82a8-999087815962 │ nos-16 │ vdf   │ Success │
-└──────────────────────────────────────┴────────┴───────┴─────────┘
+┌──────────────────────────────────────┬───────┬───────┬─────────┐
+│ REQUEST_ID                           │ NODE  │ DRIVE │ MESSAGE │
+├──────────────────────────────────────┼───────┼───────┼─────────┤
+│ a15ef873-4373-4990-9ed0-7d1411845424 │ nos-13│ sdc   │ Success │
+│ a15ef873-4373-4990-9ed0-7d1411845424 │ nos-13│ sdd   │ Success │
+│ a15ef873-4373-4990-9ed0-7d1411845424 │ nos-13│ sde   │ Success │
+│ a15ef873-4373-4990-9ed0-7d1411845424 │ nos-13│ sdf   │ Success │
+│ 096c865d-ed2e-47ec-85f0-ca7999299157 │ nos-14│ sdc   │ Success │
+│ 096c865d-ed2e-47ec-85f0-ca7999299157 │ nos-14│ sdd   │ Success │
+│ 096c865d-ed2e-47ec-85f0-ca7999299157 │ nos-14│ sde   │ Success │
+│ 096c865d-ed2e-47ec-85f0-ca7999299157 │ nos-14│ sdf   │ Success │
+│ 25237a70-e8d9-4f88-8eea-298014184bc0 │ nos-15│ sdc   │ Success │
+│ 25237a70-e8d9-4f88-8eea-298014184bc0 │ nos-15│ sdd   │ Success │
+│ 25237a70-e8d9-4f88-8eea-298014184bc0 │ nos-15│ sde   │ Success │
+│ 25237a70-e8d9-4f88-8eea-298014184bc0 │ nos-15│ sdf   │ Success │
+│ adef5a4f-0bb5-4999-8652-9f3fb5b35616 │ nos-16│ sdc   │ Success │
+│ adef5a4f-0bb5-4999-8652-9f3fb5b35616 │ nos-16│ sdd   │ Success │
+│ adef5a4f-0bb5-4999-8652-9f3fb5b35616 │ nos-16│ sde   │ Success │
+│ adef5a4f-0bb5-4999-8652-9f3fb5b35616 │ nos-16│ sdf   │ Success │
+└──────────────────────────────────────┴───────┴───────┴─────────┘
+Label 'directpv.min.io/storage-pool:nineinfra-default' successfully set on nos-16/sde
+Label 'directpv.min.io/storage-pool:nineinfra-default' successfully set on nos-14/sdf
+Label 'directpv.min.io/storage-pool:nineinfra-default' successfully set on nos-15/sdd
+Label 'directpv.min.io/storage-pool:nineinfra-default' successfully set on nos-14/sdd
+Label 'directpv.min.io/storage-pool:nineinfra-default' successfully set on nos-14/sdc
+Label 'directpv.min.io/storage-pool:nineinfra-default' successfully set on nos-13/sde
+Label 'directpv.min.io/storage-pool:nineinfra-default' successfully set on nos-16/sdf
+Label 'directpv.min.io/storage-pool:nineinfra-default' successfully set on nos-16/sdc
+Label 'directpv.min.io/storage-pool:nineinfra-default' successfully set on nos-13/sdc
+Label 'directpv.min.io/storage-pool:nineinfra-default' successfully set on nos-15/sde
+Label 'directpv.min.io/storage-pool:nineinfra-default' successfully set on nos-13/sdf
+Label 'directpv.min.io/storage-pool:nineinfra-default' successfully set on nos-15/sdc
+Label 'directpv.min.io/storage-pool:nineinfra-default' successfully set on nos-16/sdd
+Label 'directpv.min.io/storage-pool:nineinfra-default' successfully set on nos-14/sde
+Label 'directpv.min.io/storage-pool:nineinfra-default' successfully set on nos-13/sdd
+Label 'directpv.min.io/storage-pool:nineinfra-default' successfully set on nos-15/sdf
 ```
 
 6. Create a NineCluster
 ```sh
 # The datavolume arg expresses the storage capacity size of the NineCluster,default unit is Gi.
 $ kubectl create namespace dwh
-$ kubectl nine create nine-test -v 16 -n dwh
+# Specify the hdfs as the main storage for the NineInfra Cluster,default is minio.
+# You can add the doris as the default olap for the NineInfra cluster by the parameter --olap
+$ kubectl nine create nine-test -n dwh -v 16 --enable-kyuubi-ha --olap doris --main-storage hdfs
 ```
 
 7. List the NineClusters
@@ -101,10 +138,16 @@ nine-test               16              true            dwh             18h
 # This will show all the projects status in the NineCluster.
 $ kubectl nine show nine-test -n dwh
 NAME                                            PROJECT         TYPE            READY           AGE
-nine-test-nine-metastore                        metastore       statefulset     1/1             18h
-nine-test-nine-ss-0                             minio           statefulset     4/4             18h
-nine-test-nine-pg                               postgresql      cluster         3/3             18h
-nine-test-nine-kyuubi                           kyuubi          statefulset     1/1             18h
+nine-test-nine-kyuubi                           kyuubi          statefulset     2/2             119m
+nine-test-nine-metastore                        metastore       statefulset     1/1             119m
+nine-test-nine-pg                               postgresql      cluster         3/3             146m
+nine-test-nine-doris-be                         doris-be        statefulset     3/3             126m
+nine-test-nine-doris-fe                         doris-fe        statefulset     3/3             146m
+nine-test-nine-hdfs-datanode                    datanode        statefulset     4/4             121m
+nine-test-nine-hdfs-journalnode                 journalnode     statefulset     3/3             125m
+nine-test-nine-hdfs-namenode                    namenode        statefulset     2/2             122m
+nine-test-nine-zookeeper                        zookeeper       statefulset     3/3             146m
+
 ```
 9. Execute sql statements in the NineCluster
 ```sh
@@ -238,7 +281,7 @@ Contributing is very welcome.
 
 ## License
 
-Copyright 2023 nineinfra.
+Copyright 2024 nineinfra.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
