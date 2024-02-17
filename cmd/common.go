@@ -81,12 +81,12 @@ func runExecCommand(pdName string, namespace string, tty bool, cmd []string) (st
 	if err != nil {
 		return "", err
 	}
-	defer func(Stdin *os.File) {
-		err := Stdin.Close()
-		if err != nil {
-			fmt.Printf("Error: %v \n", err)
-		}
-	}(os.Stdin)
+	//defer func(Stdin *os.File) {
+	//	err := Stdin.Close()
+	//	if err != nil {
+	//		fmt.Printf("Error: %v \n", err)
+	//	}
+	//}(os.Stdin)
 	if !tty {
 		var stdout bytes.Buffer
 		var stderr bytes.Buffer
@@ -479,15 +479,15 @@ func GetDorisIpAndPort(name string, ns string) (string, int32) {
 	return GetSvcAccessInfo(GenDorisSvcName(name), DefaultDorisPortName, ns)
 }
 
-func GetThriftPodName(name string, ns string) (string, error) {
+func GetThriftPodName(name string, ns string) ([]string, error) {
 	path, _ := rootCmd.Flags().GetString(kubeconfig)
 	client, err := GetKubeClient(path)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	svc, err := client.CoreV1().Services(ns).Get(context.TODO(), GenThriftSvcName(name), metav1.GetOptions{})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	selector := labels.Set(svc.Spec.Selector).AsSelector()
 
@@ -495,13 +495,17 @@ func GetThriftPodName(name string, ns string) (string, error) {
 		LabelSelector: selector.String()})
 
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	if len(pods.Items) == 0 {
-		return "", errors.New("pod not found")
+		return nil, errors.New("pod not found")
 	}
-	return pods.Items[0].Name, nil
+	podNames := make([]string, 0)
+	for _, pod := range pods.Items {
+		podNames = append(podNames, pod.Name)
+	}
+	return podNames, nil
 }
 
 func GetCustomAppRunningPid(podName string, ns string, prefix string) string {
@@ -646,4 +650,8 @@ func CheckEndpointsReady(name string, namespace string, needReplicas int) (error
 		return nil, false, existsEndpoints
 	}
 	return nil, true, existsEndpoints
+}
+
+func NineResourceName(name string, suffixs ...string) string {
+	return name + DefaultNineSuffix + strings.Join(suffixs, "-")
 }

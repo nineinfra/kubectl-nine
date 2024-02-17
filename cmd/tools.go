@@ -409,7 +409,7 @@ func (t *toolsCmd) installSuperset(parameters []string) error {
 }
 
 func (t *toolsCmd) checkZookeeperCluster() bool {
-	epName := fmt.Sprintf("%s%s", t.nineName, DefaultZookeeperHLSVCNameSuffix)
+	epName := fmt.Sprintf("%s", NineResourceName(t.nineName, fmt.Sprintf("-%s", DefaultZookeeperHLSVCNameSuffix)))
 	err, ready, _ := CheckEndpointsReady(epName, t.ns, DefaultZookeeperReplicas)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return false

@@ -152,14 +152,14 @@ func (t *tpcdsCmd) updateSparkUIService() error {
 	if t.tpcdsOptions.DeployMode == SparkDeployModeCluster {
 		svcName = DefaultTPCDSPrefix + "-cluster"
 		selector = map[string]string{
-			"cluster":    t.tpcdsOptions.Name,
+			"cluster":    NineResourceName(t.tpcdsOptions.Name),
 			"app":        DefaultTPCDSAPP,
 			"spark-role": "driver",
 		}
 	} else {
 		svcName = DefaultTPCDSPrefix + "-client"
 		selector = map[string]string{
-			"cluster": t.tpcdsOptions.Name,
+			"cluster": NineResourceName(t.tpcdsOptions.Name),
 			"app":     "kyuubi",
 		}
 	}
@@ -178,7 +178,7 @@ func (t *tpcdsCmd) updateSparkUIService() error {
 				Name:      svcName,
 				Namespace: t.tpcdsOptions.NS,
 				Labels: map[string]string{
-					"cluster": t.tpcdsOptions.Name,
+					"cluster": NineResourceName(t.tpcdsOptions.Name),
 					"app":     "kyuubi",
 				},
 			},
@@ -222,7 +222,7 @@ func (t *tpcdsCmd) stopRunningTPCDS(podName string) error {
 	}
 	if !t.tpcdsOptions.Force {
 		selector := labels.Set(map[string]string{
-			"cluster":    t.tpcdsOptions.Name,
+			"cluster":    NineResourceName(t.tpcdsOptions.Name),
 			"app":        DefaultTPCDSAPP,
 			"spark-role": "driver",
 		}).AsSelector()
@@ -236,7 +236,7 @@ func (t *tpcdsCmd) stopRunningTPCDS(podName string) error {
 		}
 	} else {
 		selector := labels.Set(map[string]string{
-			"cluster": t.tpcdsOptions.Name,
+			"cluster": NineResourceName(t.tpcdsOptions.Name),
 			"app":     DefaultTPCDSAPP,
 		}).AsSelector()
 		podList, err := client.CoreV1().Pods(t.tpcdsOptions.NS).List(context.TODO(), metav1.ListOptions{LabelSelector: selector.String()})
@@ -301,7 +301,7 @@ func (t *tpcdsCmd) checkTPCDSIsRunning(podName string) bool {
 	}
 
 	selector := labels.Set(map[string]string{
-		"cluster": t.tpcdsOptions.Name,
+		"cluster": NineResourceName(t.tpcdsOptions.Name),
 		"app":     DefaultTPCDSAPP,
 	}).AsSelector()
 	podList, err := client.CoreV1().Pods(t.tpcdsOptions.NS).List(context.TODO(), metav1.ListOptions{LabelSelector: selector.String()})
@@ -324,7 +324,7 @@ func (t *tpcdsCmd) checkTPCDSIsRunning(podName string) bool {
 }
 
 func (t *tpcdsCmd) runTPCDS() error {
-	podName, err := GetThriftPodName(t.tpcdsOptions.Name, t.tpcdsOptions.NS)
+	podNames, err := GetThriftPodName(t.tpcdsOptions.Name, t.tpcdsOptions.NS)
 	if err != nil {
 		return err
 	}
@@ -342,11 +342,17 @@ func (t *tpcdsCmd) runTPCDS() error {
 		if err != nil {
 			return err
 		}
-		return t.stopRunningTPCDS(podName)
+		for _, podName := range podNames {
+			if err = t.stopRunningTPCDS(podName); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
-
-	if t.checkTPCDSIsRunning(podName) {
-		return fmt.Errorf("the TPC-DS is already exist")
+	for _, podName := range podNames {
+		if t.checkTPCDSIsRunning(podName) {
+			return fmt.Errorf("the TPC-DS is already exist")
+		}
 	}
 
 	if err := t.updateSparkUIService(); err != nil {
@@ -370,7 +376,7 @@ func (t *tpcdsCmd) runTPCDS() error {
 		pCmd = append(pCmd, "--conf", fmt.Sprintf("spark.kubernetes.driver.pod.name=%s", DefaultTPCDSPrefix+SparkDriverNameSuffix),
 			"--conf", fmt.Sprintf("spark.kubernetes.file.upload.path=%s", t.tpcdsOptions.ResultsDir),
 			"--conf", fmt.Sprintf("spark.kubernetes.authenticate.driver.serviceAccountName=%s", GenThriftServiceAccountName(t.tpcdsOptions.Name)),
-			"--conf", fmt.Sprintf("spark.kubernetes.driver.label.cluster=%s", t.tpcdsOptions.Name),
+			"--conf", fmt.Sprintf("spark.kubernetes.driver.label.cluster=%s", NineResourceName(t.tpcdsOptions.Name)),
 			"--conf", fmt.Sprintf("spark.kubernetes.driver.label.app=%s", DefaultTPCDSAPP),
 			"--conf",
 			fmt.Sprintf("spark.kubernetes.driver.volumes.persistentVolumeClaim.spark-local-dir-1.options.claimName=OnDemand"),
@@ -403,7 +409,7 @@ func (t *tpcdsCmd) runTPCDS() error {
 	}
 
 	pCmd = append(pCmd,
-		"--conf", fmt.Sprintf("spark.kubernetes.executor.label.cluster=%s", t.tpcdsOptions.Name),
+		"--conf", fmt.Sprintf("spark.kubernetes.executor.label.cluster=%s", NineResourceName(t.tpcdsOptions.Name)),
 		"--conf", fmt.Sprintf("spark.kubernetes.executor.label.app=%s", DefaultTPCDSAPP))
 
 	if t.tpcdsOptions.DeployMode == SparkDeployModeCluster {
@@ -439,7 +445,7 @@ func (t *tpcdsCmd) runTPCDS() error {
 		}
 		pCmd = append(pCmd, "--results-dir", fmt.Sprintf("%s", t.tpcdsOptions.ResultsDir))
 	}
-	_, err = runExecCommand(podName, t.tpcdsOptions.NS, t.tpcdsOptions.TTY, pCmd)
+	_, err = runExecCommand(podNames[0], t.tpcdsOptions.NS, t.tpcdsOptions.TTY, pCmd)
 	if err != nil {
 		return err
 	}
