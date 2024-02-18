@@ -124,8 +124,9 @@ func HelmInstallWithParameters(name string, repoName string, chartPath string, c
 	if err != nil && !strings.Contains(errput, "in use") {
 		return errors.New(errput)
 	}
-
-	fmt.Printf("Install %s successfully!\n", name)
+	if !strings.Contains(errput, "in use") {
+		fmt.Printf("Install %s successfully!\n", name)
+	}
 	return nil
 }
 
@@ -134,7 +135,9 @@ func HelmUnInstall(name string, namespace string, flags string) error {
 	if err != nil && !strings.Contains(errput, "not found") {
 		return errors.New(errput)
 	}
-	fmt.Printf("Uninstall %s successfully!\n", name)
+	if !strings.Contains(errput, "not found") {
+		fmt.Printf("Uninstall %s successfully!\n", name)
+	}
 	return nil
 }
 

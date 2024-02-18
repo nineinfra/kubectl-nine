@@ -40,16 +40,23 @@ var (
 )
 
 type toolsCmd struct {
-	out         io.Writer
-	errOut      io.Writer
-	subCommand  string
-	ns          string
-	nineName    string
-	toolkitArgs []string // --nodes flag
-	deletePVC   bool
-	chartPath   string
-	storagepool string
-	zkSvcName   string
+	out               io.Writer
+	errOut            io.Writer
+	subCommand        string
+	ns                string
+	nineName          string
+	toolkitArgs       []string // --nodes flag
+	deletePVC         bool
+	chartPath         string
+	storagepool       string
+	zkSvcName         string
+	nifiNodes         int
+	nifiSvcNodePort   int
+	nifiSvcType       string
+	airflowSvcType    string
+	airflowRepository string
+	airflowTag        string
+	supersetSvcType   string
 }
 
 type DatabasesConnection struct {
@@ -86,12 +93,13 @@ func newToolsCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	f.StringSliceVarP(&c.toolkitArgs, "toolkit", "t", strings.Split(toolsSupported, ","), "toolkit list for the NineCluster")
 	f.StringVar(&DefaultAccessHost, "access-host", "", "access host ip for out cluster access,such as web access")
 	f.StringVarP(&c.subCommand, "command", "c", "", fmt.Sprintf("command for tools,%s are supported now", toolsSubCommandList))
-	f.IntVar(&DefaultToolNifiSvcNodePort, "nifi-nodeport", 31333, "nodePort value for nifi https")
-	f.StringVar(&DefaultToolAirflowSvcType, "airflow-svctype", "NodePort", "service type for airflow ui")
-	f.StringVar(&DefaultToolSupersetSvcType, "superset-svctype", "NodePort", "service type for superset ui")
-	f.StringVar(&DefaultToolNifiSvcType, "nifi-svctype", "NodePort", "service type for nifi ui")
-	f.StringVar(&DefaultToolAirflowRepository, "airflow-repo", "nineinfra/airflow", "airflow image repository")
-	f.StringVar(&DefaultToolAirflowTag, "airflow-tag", "2.7.3", "airflow image tag")
+	f.IntVar(&c.nifiNodes, "nifi-nodes", 1, "number of nifi nodes")
+	f.IntVar(&c.nifiSvcNodePort, "nifi-nodeport", DefaultToolNifiSvcNodePort, "nodePort value for nifi https")
+	f.StringVar(&c.airflowSvcType, "airflow-svctype", DefaultToolAirflowSvcType, "service type for airflow ui")
+	f.StringVar(&c.supersetSvcType, "superset-svctype", DefaultToolSupersetSvcType, "service type for superset ui")
+	f.StringVar(&c.nifiSvcType, "nifi-svctype", DefaultToolNifiSvcType, "service type for nifi ui")
+	f.StringVar(&c.airflowRepository, "airflow-repo", DefaultToolAirflowRepository, "airflow image repository")
+	f.StringVar(&c.airflowTag, "airflow-tag", DefaultToolAirflowTag, "airflow image tag")
 	f.StringVarP(&c.storagepool, "storage-pool", "s", DefaultStorageClass, "storage pool for tools")
 	f.BoolVar(&c.deletePVC, "delete-pvc", false, "delete the ninecluster tools pvcs")
 	f.StringVarP(&c.chartPath, "chart-path", "p", "", "local path of the charts")
@@ -136,12 +144,17 @@ func (t *toolsCmd) deleteToolsPVC(namespace string) error {
 		return err
 	}
 
-	toolsPvcLabel := DefaultAirflowPVCLabelKey + "=" + DefaultToolsNamePrefix + DefaultToolAirflowName
+	toolsPvcLabel := fmt.Sprintf("%s=%s%s,%s=%s", DefaultReleaseLabelKey, DefaultToolsNamePrefix, DefaultToolAirflowName, DefaultAirflowTierPVCLabelKey, DefaultToolAirflowName)
 	err = c.CoreV1().PersistentVolumeClaims(namespace).DeleteCollection(context.TODO(), metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: toolsPvcLabel})
 	if err != nil {
 		return err
 	}
 	toolsPvcLabel = DefaultZookeeperPVCLabelKey + "=" + DefaultToolsNamePrefix + DefaultToolZookeeperName
+	err = c.CoreV1().PersistentVolumeClaims(namespace).DeleteCollection(context.TODO(), metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: toolsPvcLabel})
+	if err != nil {
+		return err
+	}
+	toolsPvcLabel = fmt.Sprintf("%s=%s%s,%s=%s", DefaultReleaseLabelKey, DefaultToolsNamePrefix, DefaultToolNifiName, DefaultAppLabelKey, DefaultToolNifiName)
 	err = c.CoreV1().PersistentVolumeClaims(namespace).DeleteCollection(context.TODO(), metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: toolsPvcLabel})
 	if err != nil {
 		return err
@@ -255,7 +268,7 @@ func (t *toolsCmd) genSupersetParameters(relName string, parameters []string) []
 	params = append(params, []string{"--set", fmt.Sprintf("supersetNode.connections.db_pass=%s", DefaultToolSupersetDBPwd)}...)
 	params = append(params, []string{"--set", fmt.Sprintf("supersetNode.connections.db_name=%s", DefaultToolSupersetDBName)}...)
 	params = append(params, []string{"--set", fmt.Sprintf("supersetNode.connections.db_host=%s", t.nineName+DefaultPGRWSVCNameSuffix)}...)
-	params = append(params, []string{"--set", fmt.Sprintf("service.type=%s", DefaultToolSupersetSvcType)}...)
+	params = append(params, []string{"--set", fmt.Sprintf("service.type=%s", t.supersetSvcType)}...)
 	params = append(params, []string{"--set-file", fmt.Sprintf("configOverrides.secret=%s", DefaultToolSupersetSecretFile)}...)
 	params = append(params, []string{"--set-file", fmt.Sprintf("extraConfigs.import_datasources=%s", DefaultToolSupersetSDataSourcesFile)}...)
 	params = append(params, []string{"--set", "redis.enabled=false"}...)
@@ -285,11 +298,13 @@ func (t *toolsCmd) genNifiParameters(relName string, parameters []string) []stri
 		}
 	}
 	params := append(parameters, []string{"--set", "fullnameOverride=" + relName}...)
+	params = append(params, []string{"--set", fmt.Sprintf("replicaCount=%d", t.nifiNodes)}...)
 	params = append(params, []string{"--set", "auth.enabled=false"}...)
-	params = append(params, []string{"--set", fmt.Sprintf("master.persistence.storageClass=%s", t.storagepool)}...)
-	params = append(params, []string{"--set", fmt.Sprintf("service.type=%s", DefaultToolNifiSvcType)}...)
-	params = append(params, []string{"--set", fmt.Sprintf("service.nodePort=%d", DefaultToolNifiSvcNodePort)}...)
-	params = append(params, []string{"--set", fmt.Sprintf("properties.webProxyHost=%s:%d", nodePortIp, DefaultToolNifiSvcNodePort)}...)
+	params = append(params, []string{"--set", fmt.Sprintf("persistence.enabled=true")}...)
+	params = append(params, []string{"--set", fmt.Sprintf("persistence.storageClass=%s", t.storagepool)}...)
+	params = append(params, []string{"--set", fmt.Sprintf("service.type=%s", t.nifiSvcType)}...)
+	params = append(params, []string{"--set", fmt.Sprintf("service.nodePort=%d", t.nifiSvcNodePort)}...)
+	params = append(params, []string{"--set", fmt.Sprintf("properties.webProxyHost=%s:%d", nodePortIp, t.nifiSvcNodePort)}...)
 	params = append(params, []string{"--set", fmt.Sprintf("zookeeper.url=%s", t.zkSvcName)}...)
 	params = append(params, []string{"--set", fmt.Sprintf("auth.singleUser.username=%s", DefaultToolNifiUserName)}...)
 	params = append(params, []string{"--set", fmt.Sprintf("auth.singleUser.password=%s", DefaultToolNifiUserPWD)}...)
@@ -305,10 +320,10 @@ func (t *toolsCmd) genAirflowParameters(relName string, parameters []string) []s
 	params = append(params, []string{"--set", fmt.Sprintf("data.metadataConnection.pass=%s", DefaultToolAirflowDBPwd)}...)
 	params = append(params, []string{"--set", fmt.Sprintf("data.metadataConnection.db=%s", DefaultToolAirflowDBName)}...)
 	params = append(params, []string{"--set", fmt.Sprintf("data.metadataConnection.host=%s", t.nineName+DefaultPGRWSVCNameSuffix)}...)
-	params = append(params, []string{"--set", fmt.Sprintf("images.airflow.repository=%s", DefaultToolAirflowRepository)}...)
-	params = append(params, []string{"--set", fmt.Sprintf("images.airflow.tag=%s", DefaultToolAirflowTag)}...)
+	params = append(params, []string{"--set", fmt.Sprintf("images.airflow.repository=%s", t.airflowRepository)}...)
+	params = append(params, []string{"--set", fmt.Sprintf("images.airflow.tag=%s", t.airflowTag)}...)
 	params = append(params, []string{"--set", fmt.Sprintf("webserverSecretKey=%s", DefaultToolAirflowWebServerSecretKey)}...)
-	params = append(params, []string{"--set", fmt.Sprintf("webserver.service.type=%s", DefaultToolAirflowSvcType)}...)
+	params = append(params, []string{"--set", fmt.Sprintf("webserver.service.type=%s", t.airflowSvcType)}...)
 	params = append(params, []string{"--set", fmt.Sprintf("logs.persistence.size=%s", DefaultToolAirflowDiskSize)}...)
 	params = append(params, []string{"--set", fmt.Sprintf("workers.persistence.size=%s", DefaultToolAirflowDiskSize)}...)
 	params = append(params, []string{"--set", fmt.Sprintf("triggerer.persistence.size=%s", DefaultToolAirflowDiskSize)}...)
@@ -423,7 +438,7 @@ func (t *toolsCmd) checkZookeeperCluster() bool {
 func (t *toolsCmd) installZookeeper(parameters []string) error {
 	if t.checkZookeeperCluster() {
 		fmt.Printf("A zookeeper cluster exists,no need to install!\n")
-		t.zkSvcName = fmt.Sprintf("%s%s", t.nineName, DefaultZookeeperHLSVCNameSuffix)
+		t.zkSvcName = fmt.Sprintf("%s", NineResourceName(t.nineName, fmt.Sprintf("-%s", DefaultZookeeperHLSVCNameSuffix)))
 		return nil
 	}
 	relName := DefaultToolsNamePrefix + DefaultToolZookeeperName

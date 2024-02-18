@@ -4,6 +4,7 @@ const (
 	DefaultNamespace         = "nineinfra"
 	DefaultMinioPVCLabelKey  = "v1.min.io/tenant"
 	DefaultClusterLabelKey   = "cluster"
+	DefaultReleaseLabelKey   = "release"
 	DefaultAppLabelKey       = "app"
 	DefaultNineSuffix        = "-nine"
 	DefaultThriftPortName    = "thrift-binary"
@@ -32,11 +33,11 @@ const (
 	DefaultToolRedisName                 = "redis"
 	DefaultToolAirflowWebServerSecretKey = "2ae7138d1fc0859df4a2456dd0146785"
 	DefaultToolAirflowDiskSize           = "20Gi"
+	DefaultAirflowTierPVCLabelKey        = "tier"
 	DefaultToolNifiUserName              = "admin"
 	DefaultToolNifiUserPWD               = "nineinfraadmin"
 	DefaultZookeeperHLSVCNameSuffix      = "zookeeper-headless"
 	DefaultZookeeperSVCName              = DefaultToolsNamePrefix + DefaultZookeeperHLSVCNameSuffix
-	DefaultAirflowPVCLabelKey            = "release"
 	DefaultZookeeperPVCLabelKey          = "app.kubernetes.io/instance"
 )
 
