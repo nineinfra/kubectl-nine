@@ -53,6 +53,7 @@ type TPCDSOptions struct {
 	Force           bool
 	DeployMode      string
 	SparkUI         int
+	HdfsNameSpace   string
 }
 
 type tpcdsCmd struct {
@@ -92,7 +93,7 @@ func newClusterTPCDSCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	f.IntVarP(&c.tpcdsOptions.Iterations, "iterations", "i", 3, "the number of iterations to run")
 	f.StringSliceVarP(&c.tpcdsOptions.Queries, "queries", "q", nil, "the queries of the TPC-DS,e.g. q1-v2.4,q2-v2.4 ")
 	f.StringVarP(&c.tpcdsOptions.TPCDSJar, "jar", "j", fmt.Sprintf("kyuubi-tpcds_%s-%s.jar", DefaultScalaVersion, DefaultKyuubiVersion), "jar for TPC-DS")
-	f.StringVarP(&c.tpcdsOptions.ResultsDir, "results-dir", "r", "s3a://nineinfra/datahouse/performance", "the dir to store benchmark results")
+	f.StringVarP(&c.tpcdsOptions.ResultsDir, "results-dir", "r", "/nineinfra/datahouse/performance", "the dir to store benchmark results")
 	f.IntVar(&c.tpcdsOptions.Executors, "num-executors", 0, "the number of the spark executors for the TPC-DS")
 	f.IntVar(&c.tpcdsOptions.DriverCores, "driver-cores", 0, "the cores of the spark driver for the TPC-DS")
 	f.IntVar(&c.tpcdsOptions.DriverMemory, "driver-memory", 0, "the memory of the spark driver for the TPC-DS")
@@ -104,6 +105,7 @@ func newClusterTPCDSCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	f.StringVar(&c.tpcdsOptions.DeployMode, "deploy-mode", "client", "deploy mode of spark-submit")
 	f.StringVar(&DefaultAccessHost, "access-host", "", "access host ip for out cluster access,such as web access")
 	f.IntVar(&c.tpcdsOptions.SparkUI, "spark-ui", DefaultSparkUINodePort, "nodeport of spark UI")
+	f.StringVar(&c.tpcdsOptions.HdfsNameSpace, "hdfs-namespace", "nineinfra", "the namespace of datahouse stroage on the hdfs")
 	f.BoolVar(&c.tpcdsOptions.Stop, "stop", false, "stop and clean the running TPC-DS")
 	f.BoolVar(&c.tpcdsOptions.Force, "force", false, "force to stop and clean the running TPC-DS")
 	f.BoolVar(&c.tpcdsOptions.TTY, "tty", false, "enable tty")
@@ -335,6 +337,24 @@ func (t *tpcdsCmd) runTPCDS() error {
 	config, err := GetKubeConfig()
 	if err != nil {
 		return err
+	}
+	path, _ := rootCmd.Flags().GetString(kubeconfig)
+	nc, err := GetNineInfraClient(path)
+	if err != nil {
+		return err
+	}
+	nineCluster, err := nc.NineinfraV1alpha1().NineClusters(t.tpcdsOptions.NS).Get(context.TODO(), t.tpcdsOptions.Name, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	t.tpcdsOptions.ResultsDir = fmt.Sprintf("s3a:/%s", t.tpcdsOptions.ResultsDir)
+	if nineCluster.Spec.Features != nil {
+		if value, ok := nineCluster.Spec.Features[FeaturesStorageKey]; ok {
+			if value == FeaturesStorageValueHdfs {
+				t.tpcdsOptions.ResultsDir = fmt.Sprintf("hdfs://%s%s", t.tpcdsOptions.HdfsNameSpace, t.tpcdsOptions.ResultsDir)
+			}
+		}
 	}
 
 	if t.tpcdsOptions.Stop {

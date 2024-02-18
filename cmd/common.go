@@ -98,9 +98,17 @@ func runExecCommand(pdName string, namespace string, tty bool, cmd []string) (st
 			Tty:    false,
 		})
 		if DEBUG {
-			if stdout.Len() != 0 && stderr.Len() != 0 {
-				fmt.Printf("runExecCommand command output:%s,command err:%s,exec err:%s\n", stdout.String(), stderr.String(), err.Error())
+			fmt.Printf("runExecCommand command finished ")
+			if stdout.Len() != 0 {
+				fmt.Printf("output:%s", stdout.String())
 			}
+			if stderr.Len() != 0 {
+				fmt.Printf(" command err:%s", stderr.String())
+			}
+			if err != nil {
+				fmt.Printf(" exec err:%s", err.Error())
+			}
+			fmt.Println()
 		}
 		if err != nil {
 			return stderr.String(), err
