@@ -663,3 +663,22 @@ func CheckEndpointsReady(name string, namespace string, needReplicas int) (error
 func NineResourceName(name string, suffixs ...string) string {
 	return name + DefaultNineSuffix + strings.Join(suffixs, "-")
 }
+
+func GetNineClusterStorageType(name string, namespace string) (string, error) {
+	path, _ := rootCmd.Flags().GetString(kubeconfig)
+	nc, err := GetNineInfraClient(path)
+	if err != nil {
+		return "", err
+	}
+	nineCluster, err := nc.NineinfraV1alpha1().NineClusters(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+	if err != nil {
+		return "", err
+	}
+
+	if nineCluster.Spec.Features != nil {
+		if value, ok := nineCluster.Spec.Features[FeaturesStorageKey]; ok {
+			return value, nil
+		}
+	}
+	return FeaturesStorageValueMinio, nil
+}

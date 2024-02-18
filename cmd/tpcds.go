@@ -338,23 +338,19 @@ func (t *tpcdsCmd) runTPCDS() error {
 	if err != nil {
 		return err
 	}
-	path, _ := rootCmd.Flags().GetString(kubeconfig)
-	nc, err := GetNineInfraClient(path)
-	if err != nil {
-		return err
-	}
-	nineCluster, err := nc.NineinfraV1alpha1().NineClusters(t.tpcdsOptions.NS).Get(context.TODO(), t.tpcdsOptions.Name, metav1.GetOptions{})
+
+	storageType, err := GetNineClusterStorageType(t.tpcdsOptions.Name, t.tpcdsOptions.NS)
 	if err != nil {
 		return err
 	}
 
-	t.tpcdsOptions.ResultsDir = fmt.Sprintf("s3a:/%s", t.tpcdsOptions.ResultsDir)
-	if nineCluster.Spec.Features != nil {
-		if value, ok := nineCluster.Spec.Features[FeaturesStorageKey]; ok {
-			if value == FeaturesStorageValueHdfs {
-				t.tpcdsOptions.ResultsDir = fmt.Sprintf("hdfs://%s%s", t.tpcdsOptions.HdfsNameSpace, t.tpcdsOptions.ResultsDir)
-			}
-		}
+	switch storageType {
+	case FeaturesStorageValueHdfs:
+		t.tpcdsOptions.ResultsDir = fmt.Sprintf("hdfs://%s%s", t.tpcdsOptions.HdfsNameSpace, t.tpcdsOptions.ResultsDir)
+	case FeaturesStorageValueMinio:
+		t.tpcdsOptions.ResultsDir = fmt.Sprintf("s3a:/%s", t.tpcdsOptions.ResultsDir)
+	default:
+		t.tpcdsOptions.ResultsDir = fmt.Sprintf("s3a:/%s", t.tpcdsOptions.ResultsDir)
 	}
 
 	if t.tpcdsOptions.Stop {
