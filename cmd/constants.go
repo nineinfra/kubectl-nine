@@ -18,8 +18,6 @@ const (
 const (
 	DefaultPGRWSVCNameSuffix             = DefaultNineSuffix + "-pg-rw"
 	DefaultPGRWPortName                  = "postgres"
-	DefaultToolsNamePrefix               = "nineinfra-"
-	DefaultRedisSVCName                  = DefaultToolsNamePrefix + "redis"
 	DefaultToolAirflowDBUser             = "airflow"
 	DefaultToolAirflowDBPwd              = "airflow"
 	DefaultToolAirflowDBName             = "airflow"
@@ -37,7 +35,6 @@ const (
 	DefaultToolNifiUserName              = "admin"
 	DefaultToolNifiUserPWD               = "nineinfraadmin"
 	DefaultZookeeperHLSVCNameSuffix      = "zookeeper-headless"
-	DefaultZookeeperSVCName              = DefaultToolsNamePrefix + DefaultZookeeperHLSVCNameSuffix
 	DefaultZookeeperPVCLabelKey          = "app.kubernetes.io/instance"
 )
 

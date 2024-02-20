@@ -52,6 +52,7 @@ type toolsCmd struct {
 	zkSvcName         string
 	nifiNodes         int
 	nifiSvcNodePort   int
+	nifiS2SHttpPort   int
 	nifiSvcType       string
 	airflowSvcType    string
 	airflowRepository string
@@ -95,6 +96,7 @@ func newToolsCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	f.StringVarP(&c.subCommand, "command", "c", "", fmt.Sprintf("command for tools,%s are supported now", toolsSubCommandList))
 	f.IntVar(&c.nifiNodes, "nifi-nodes", 1, "number of nifi nodes")
 	f.IntVar(&c.nifiSvcNodePort, "nifi-nodeport", DefaultToolNifiSvcNodePort, "nodePort value for nifi https")
+	f.IntVar(&c.nifiS2SHttpPort, "nifi-httpport", 8081, "site to site http port")
 	f.StringVar(&c.airflowSvcType, "airflow-svctype", DefaultToolAirflowSvcType, "service type for airflow ui")
 	f.StringVar(&c.supersetSvcType, "superset-svctype", DefaultToolSupersetSvcType, "service type for superset ui")
 	f.StringVar(&c.nifiSvcType, "nifi-svctype", DefaultToolNifiSvcType, "service type for nifi ui")
@@ -144,17 +146,17 @@ func (t *toolsCmd) deleteToolsPVC(namespace string) error {
 		return err
 	}
 
-	toolsPvcLabel := fmt.Sprintf("%s=%s%s,%s=%s", DefaultReleaseLabelKey, DefaultToolsNamePrefix, DefaultToolAirflowName, DefaultAirflowTierPVCLabelKey, DefaultToolAirflowName)
+	toolsPvcLabel := fmt.Sprintf("%s=%s,%s=%s", DefaultReleaseLabelKey, NineResourceName(t.nineName, DefaultToolAirflowName), DefaultAirflowTierPVCLabelKey, DefaultToolAirflowName)
 	err = c.CoreV1().PersistentVolumeClaims(namespace).DeleteCollection(context.TODO(), metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: toolsPvcLabel})
 	if err != nil {
 		return err
 	}
-	toolsPvcLabel = DefaultZookeeperPVCLabelKey + "=" + DefaultToolsNamePrefix + DefaultToolZookeeperName
+	toolsPvcLabel = fmt.Sprintf("%s=%s", DefaultZookeeperPVCLabelKey, NineResourceName(t.nineName, DefaultToolZookeeperName))
 	err = c.CoreV1().PersistentVolumeClaims(namespace).DeleteCollection(context.TODO(), metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: toolsPvcLabel})
 	if err != nil {
 		return err
 	}
-	toolsPvcLabel = fmt.Sprintf("%s=%s%s,%s=%s", DefaultReleaseLabelKey, DefaultToolsNamePrefix, DefaultToolNifiName, DefaultAppLabelKey, DefaultToolNifiName)
+	toolsPvcLabel = fmt.Sprintf("%s=%s,%s=%s", DefaultReleaseLabelKey, NineResourceName(t.nineName, DefaultToolNifiName), DefaultAppLabelKey, DefaultToolNifiName)
 	err = c.CoreV1().PersistentVolumeClaims(namespace).DeleteCollection(context.TODO(), metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: toolsPvcLabel})
 	if err != nil {
 		return err
@@ -263,7 +265,7 @@ func (t *toolsCmd) genSupersetParameters(relName string, parameters []string) []
 		return []string{""}
 	}
 	params := append(parameters, []string{"--set", fmt.Sprintf("fullnameOverride=%s", relName)}...)
-	params = append(params, []string{"--set", fmt.Sprintf("supersetNode.connections.redis_host=%s", DefaultRedisSVCName)}...)
+	params = append(params, []string{"--set", fmt.Sprintf("supersetNode.connections.redis_host=%s", NineResourceName(t.nineName, DefaultToolRedisName))}...)
 	params = append(params, []string{"--set", fmt.Sprintf("supersetNode.connections.db_user=%s", DefaultToolSupersetDBUser)}...)
 	params = append(params, []string{"--set", fmt.Sprintf("supersetNode.connections.db_pass=%s", DefaultToolSupersetDBPwd)}...)
 	params = append(params, []string{"--set", fmt.Sprintf("supersetNode.connections.db_name=%s", DefaultToolSupersetDBName)}...)
@@ -305,17 +307,22 @@ func (t *toolsCmd) genNifiParameters(relName string, parameters []string) []stri
 	params = append(params, []string{"--set", fmt.Sprintf("service.type=%s", t.nifiSvcType)}...)
 	params = append(params, []string{"--set", fmt.Sprintf("service.nodePort=%d", t.nifiSvcNodePort)}...)
 	params = append(params, []string{"--set", fmt.Sprintf("properties.webProxyHost=%s:%d", nodePortIp, t.nifiSvcNodePort)}...)
-	params = append(params, []string{"--set", fmt.Sprintf("zookeeper.url=%s", t.zkSvcName)}...)
 	params = append(params, []string{"--set", fmt.Sprintf("auth.singleUser.username=%s", DefaultToolNifiUserName)}...)
 	params = append(params, []string{"--set", fmt.Sprintf("auth.singleUser.password=%s", DefaultToolNifiUserPWD)}...)
 	params = append(params, []string{"--set", fmt.Sprintf("sidecar.tag=%s", DefaultToolNifiSideCarTag)}...)
 	params = append(params, []string{"--set", "zookeeper.enabled=false"}...)
+	if t.nifiNodes > 1 {
+		params = append(params, []string{"--set", fmt.Sprintf("zookeeper.url=%s", t.zkSvcName)}...)
+		params = append(params, []string{"--set", fmt.Sprintf("properties.isNode=true")}...)
+		params = append(params, []string{"--set", fmt.Sprintf("properties.httpPort=%d", t.nifiS2SHttpPort)}...)
+		params = append(params, []string{"--set", fmt.Sprintf("properties.siteToSite.secure=false")}...)
+	}
 	return params
 }
 
 func (t *toolsCmd) genAirflowParameters(relName string, parameters []string) []string {
 	params := append(parameters, []string{"--set", fmt.Sprintf("fullnameOverride=%s", relName)}...)
-	params = append(params, []string{"--set", fmt.Sprintf("data.brokerUrl=redis://%s", DefaultRedisSVCName)}...)
+	params = append(params, []string{"--set", fmt.Sprintf("data.brokerUrl=redis://%s", NineResourceName(t.nineName, DefaultToolRedisName))}...)
 	params = append(params, []string{"--set", fmt.Sprintf("data.metadataConnection.user=%s", DefaultToolAirflowDBUser)}...)
 	params = append(params, []string{"--set", fmt.Sprintf("data.metadataConnection.pass=%s", DefaultToolAirflowDBPwd)}...)
 	params = append(params, []string{"--set", fmt.Sprintf("data.metadataConnection.db=%s", DefaultToolAirflowDBName)}...)
@@ -381,7 +388,7 @@ func (t *toolsCmd) createDatabase(tool string) error {
 }
 
 func (t *toolsCmd) installRedis(parameters []string) error {
-	relName := DefaultToolsNamePrefix + DefaultToolRedisName
+	relName := NineResourceName(t.nineName, DefaultToolRedisName)
 	err := HelmInstallWithParameters(relName, "", t.chartPath, DefaultToolRedisName, DefaultToolsChartList[DefaultToolRedisName], t.ns, t.genRedisParameters(relName, parameters)...)
 	if err != nil {
 		return err
@@ -398,7 +405,7 @@ func (t *toolsCmd) installAirflow(parameters []string) error {
 	if err != nil {
 		return err
 	}
-	relName := DefaultToolsNamePrefix + DefaultToolAirflowName
+	relName := NineResourceName(t.nineName, DefaultToolAirflowName)
 	err = HelmInstallWithParameters(relName, "", t.chartPath, DefaultToolAirflowName, DefaultToolsChartList[DefaultToolAirflowName], t.ns, t.genAirflowParameters(relName, parameters)...)
 	if err != nil {
 		return err
@@ -415,7 +422,7 @@ func (t *toolsCmd) installSuperset(parameters []string) error {
 	if err != nil {
 		return err
 	}
-	relName := DefaultToolsNamePrefix + DefaultToolSupersetName
+	relName := NineResourceName(t.nineName, DefaultToolSupersetName)
 	err = HelmInstallWithParameters(relName, "", t.chartPath, DefaultToolSupersetName, DefaultToolsChartList[DefaultToolSupersetName], t.ns, t.genSupersetParameters(relName, parameters)...)
 	if err != nil {
 		return err
@@ -441,12 +448,12 @@ func (t *toolsCmd) installZookeeper(parameters []string) error {
 		t.zkSvcName = fmt.Sprintf("%s", NineResourceName(t.nineName, fmt.Sprintf("-%s", DefaultZookeeperHLSVCNameSuffix)))
 		return nil
 	}
-	relName := DefaultToolsNamePrefix + DefaultToolZookeeperName
+	relName := NineResourceName(t.nineName, DefaultToolZookeeperName)
 	err := HelmInstallWithParameters(relName, "", t.chartPath, DefaultToolZookeeperName, DefaultToolsChartList[DefaultToolZookeeperName], t.ns, t.genZookeeperParameters(relName, parameters)...)
 	if err != nil {
 		return err
 	}
-	t.zkSvcName = DefaultZookeeperSVCName
+	t.zkSvcName = NineResourceName(t.nineName, DefaultZookeeperHLSVCNameSuffix)
 	return nil
 }
 
@@ -455,7 +462,7 @@ func (t *toolsCmd) installNifi(parameters []string) error {
 	if err != nil {
 		return err
 	}
-	relName := DefaultToolsNamePrefix + DefaultToolNifiName
+	relName := NineResourceName(t.nineName, DefaultToolNifiName)
 	err = HelmInstallWithParameters(relName, "", t.chartPath, DefaultToolNifiName, DefaultToolsChartList[DefaultToolNifiName], t.ns, t.genNifiParameters(relName, parameters)...)
 	if err != nil {
 		return err
@@ -498,7 +505,7 @@ func (t *toolsCmd) install(parameters []string) error {
 func (t *toolsCmd) uninstall(parameters []string) error {
 	flags := strings.Join(parameters, " ")
 	for _, v := range t.toolkitArgs {
-		relName := DefaultToolsNamePrefix + v
+		relName := NineResourceName(t.nineName, v)
 		err := HelmUnInstall(relName, t.ns, flags)
 		if err != nil {
 			fmt.Printf("Error: %v \n", err)

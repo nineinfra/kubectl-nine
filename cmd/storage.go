@@ -71,6 +71,8 @@ var (
 type storageCmd struct {
 	out             io.Writer
 	errOut          io.Writer
+	ns              string
+	nineName        string
 	subCommand      string
 	subArg          string
 	outputFormat    string   // --output flag
@@ -105,8 +107,8 @@ func newStorageCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	}
 	cmd = DisableHelp(cmd)
 	f := cmd.Flags()
-	f.StringSliceVarP(&c.nodesArgs, "nodes", "n", c.nodesArgs, "discover drives from given nodes; supports ellipses pattern e.g. node{1...10}")
-	f.StringSliceVarP(&c.drivesArgs, "drives", "d", c.drivesArgs, "discover drives by given names; supports ellipses pattern e.g. sd{a...z}")
+	f.StringSliceVar(&c.nodesArgs, "nodes", c.nodesArgs, "discover drives from given nodes; supports ellipses pattern e.g. node{1...10}")
+	f.StringSliceVar(&c.drivesArgs, "drives", c.drivesArgs, "discover drives by given names; supports ellipses pattern e.g. sd{a...z}")
 	f.StringVarP(&c.subCommand, "command", "c", "", fmt.Sprintf("command for storage,[%s] are supported now", subCommandList))
 	f.BoolVar(&c.allFlag, "all", c.allFlag, "If present, include non-formattable devices in the display")
 	f.StringVar(&outputFile, "output-file", outputFile, "output file to write the init config")
@@ -116,6 +118,8 @@ func newStorageCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	f.StringSliceVar(&c.driveStatusArgs, "status", c.driveStatusArgs, fmt.Sprintf("%v; one of: %v", "If present, select drives by drive status", strings.Join(driveStatusValues, "|")))
 	f.BoolVar(&c.dryRunFlag, "dry-run", c.dryRunFlag, "Run in dry run mode")
 	f.StringVarP(&c.outputFormat, "output", "o", c.outputFormat, "Output format. One of: json|yaml|wide")
+	f.StringVarP(&c.ns, "namespace", "n", "", "k8s namespace for storage pvcs")
+	f.StringVar(&c.nineName, "ninecluster-name", "", "the name of the ninecluster")
 	f.BoolVar(&c.noHeaders, "no-headers", c.noHeaders, "When using the default or custom-column output format, don't print headers (default print headers)")
 	return cmd
 }
@@ -305,7 +309,30 @@ func (d *storageCmd) runCleanCmd() error {
 		}
 		fmt.Printf("Delete the Released and Deleted pv %s in the storagepool %s successfully!\n", pv.Name, d.storagePool)
 	}
-
+	if d.ns != "" && d.nineName != "" {
+		directpvClient, err := GetDirectPVClient(path)
+		if err != nil {
+			return err
+		}
+		directpvList, err := GetReadyDirectPVVolumes(directpvClient, d.ns, NineResourceName(d.nineName))
+		if err != nil {
+			return err
+		}
+		if directpvList != nil {
+			for _, directpv := range directpvList.Items {
+				directpv.SetFinalizers(nil)
+				_, err = directpvClient.DirectPVVolumes().Update(context.TODO(), &directpv, metav1.UpdateOptions{})
+				if err != nil {
+					return err
+				}
+				err = directpvClient.DirectPVVolumes().Delete(context.TODO(), directpv.Name, metav1.DeleteOptions{})
+				if err != nil && !k8serrors.IsNotFound(err) {
+					return err
+				}
+				fmt.Printf("Delete the directpv %s of the ninecluster:%s in namespace:%s successfully!\n", directpv.Name, d.nineName, d.ns)
+			}
+		}
+	}
 	return nil
 }
 

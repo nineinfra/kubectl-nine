@@ -41,7 +41,9 @@ func AddHelmRepo(repo string) error {
 	if err != nil && !strings.Contains(errput, "already exists") {
 		return err
 	}
-	fmt.Printf("Add repo %s successfully\n", repo)
+	if !strings.Contains(errput, "already exists") {
+		fmt.Printf("Add repo %s successfully\n", repo)
+	}
 	return nil
 }
 
@@ -53,7 +55,9 @@ func RemoveHelmRepo(repo string) error {
 	if err != nil && !strings.Contains(errput, fmt.Sprintf("no repo named")) {
 		return err
 	}
-	fmt.Printf("Remove repo %s successfully\n", repo)
+	if !strings.Contains(errput, fmt.Sprintf("no repo named")) {
+		fmt.Printf("Remove repo %s successfully\n", repo)
+	}
 	return nil
 }
 

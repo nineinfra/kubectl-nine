@@ -24,6 +24,7 @@ func DisableHelp(cmd *cobra.Command) *cobra.Command {
 }
 
 func CreateIfNotExist(resource string, resourceType string, flags string) error {
+	var errput string
 	if flags == "" {
 		_, errput, err := runCommand("kubectl", "create", resourceType, resource)
 		if err != nil && !strings.Contains(errput, "exists") {
@@ -35,8 +36,9 @@ func CreateIfNotExist(resource string, resourceType string, flags string) error 
 			return err
 		}
 	}
-
-	fmt.Printf("Create %s %s successfully!\n", resourceType, resource)
+	if !strings.Contains(errput, "exists") {
+		fmt.Printf("Create %s %s successfully!\n", resourceType, resource)
+	}
 	return nil
 }
 

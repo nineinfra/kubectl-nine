@@ -172,10 +172,6 @@ func NineWorkLoadName(name string, project string) string {
 	return name + NineClusterProjectNameSuffix[project]
 }
 
-func NineToolResourceName(suffix string) string {
-	return DefaultToolsNamePrefix + suffix
-}
-
 func CheckStsIfReady(name string, namespace string) bool {
 	path, _ := rootCmd.Flags().GetString(kubeconfig)
 	client, err := GetKubeClient(path)
@@ -289,8 +285,8 @@ func CheckClusterIfReady(name string, namespace string) bool {
 	return true
 }
 
-func PrintToolAccessInfo(name string, ns string) string {
-	svcName := NineToolResourceName(NineToolSvcList[name])
+func PrintToolAccessInfo(ninename string, name string, ns string) string {
+	svcName := NineResourceName(ninename, NineToolSvcList[name])
 	ip, port := GetSvcAccessInfo(svcName, NineToolPortNameList[name], ns)
 	if NineToolPortProtocolList[name] != "" {
 		return fmt.Sprintf("%s://%s:%d", NineToolPortProtocolList[name], ip, port)
@@ -342,7 +338,7 @@ func PrintClusterToolList(name string, namespace string) {
 	sort.Strings(sortedList)
 	for _, k := range sortedList {
 		v := NineToolList[k]
-		if !CheckHelmReleaseExist(NineToolResourceName(k), namespace) {
+		if !CheckHelmReleaseExist(NineResourceName(name, k), namespace) {
 			continue
 		}
 		var readys = 0
@@ -350,13 +346,13 @@ func PrintClusterToolList(name string, namespace string) {
 		for s, w := range v.(map[string]string) {
 			switch w {
 			case "statefulset":
-				if CheckStsIfReady(NineToolResourceName(s), namespace) {
+				if CheckStsIfReady(NineResourceName(name, s), namespace) {
 					readys++
 				} else {
 					notreadys++
 				}
 			case "deployment":
-				if CheckDeployIfReady(NineToolResourceName(s), namespace) {
+				if CheckDeployIfReady(NineResourceName(name, s), namespace) {
 					readys++
 				} else {
 					notreadys++
@@ -364,7 +360,7 @@ func PrintClusterToolList(name string, namespace string) {
 			}
 		}
 		if readys != 0 || notreadys != 0 {
-			fmt.Printf(PrintFmtStrToolList, name, k, fmt.Sprintf("%d/%d", readys, readys+notreadys), namespace, PrintToolAccessInfo(k, namespace))
+			fmt.Printf(PrintFmtStrToolList, name, k, fmt.Sprintf("%d/%d", readys, readys+notreadys), namespace, PrintToolAccessInfo(name, k, namespace))
 		}
 	}
 }
@@ -661,7 +657,11 @@ func CheckEndpointsReady(name string, namespace string, needReplicas int) (error
 }
 
 func NineResourceName(name string, suffixs ...string) string {
-	return name + DefaultNineSuffix + strings.Join(suffixs, "-")
+	if len(suffixs) != 0 {
+		return fmt.Sprintf("%s%s-%s", name, DefaultNineSuffix, strings.Join(suffixs, "-"))
+	} else {
+		return fmt.Sprintf("%s%s", name, DefaultNineSuffix)
+	}
 }
 
 func GetNineClusterStorageType(name string, namespace string) (string, error) {
