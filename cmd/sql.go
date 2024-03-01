@@ -101,7 +101,7 @@ func (s *sqlCmd) interactiveSQL() error {
 		"-n", s.sqlOpts.UserName,
 		"-p", s.sqlOpts.Password,
 		"--silent", fmt.Sprintf("%v", s.sqlOpts.Silent)}
-	_, err = runExecCommand(podName[0], s.sqlOpts.NS, true, pBeelineCmd)
+	_, err = RunExecCommand(podName[0], s.sqlOpts.NS, true, pBeelineCmd)
 	if err != nil {
 		return err
 	}

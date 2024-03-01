@@ -57,9 +57,9 @@ func runCommand(command string, args ...string) (string, string, error) {
 	return output.String(), errput.String(), err
 }
 
-func runExecCommand(pdName string, namespace string, tty bool, cmd []string) (string, error) {
+func RunExecCommand(pdName string, namespace string, tty bool, cmd []string) (string, error) {
 	if DEBUG {
-		fmt.Printf("runExecCommand %s through pod %s in %s\n", cmd, pdName, namespace)
+		fmt.Printf("RunExecCommand %s through pod %s in %s\n", cmd, pdName, namespace)
 	}
 	path, _ := rootCmd.Flags().GetString(kubeconfig)
 	client, config, err := GetKubeClientWithConfig(path)
@@ -98,7 +98,7 @@ func runExecCommand(pdName string, namespace string, tty bool, cmd []string) (st
 			Tty:    false,
 		})
 		if DEBUG {
-			fmt.Printf("runExecCommand command finished ")
+			fmt.Printf("RunExecCommand command finished ")
 			if stdout.Len() != 0 {
 				fmt.Printf("output:%s", stdout.String())
 			}
@@ -483,20 +483,14 @@ func GetDorisIpAndPort(name string, ns string) (string, int32) {
 	return GetSvcAccessInfo(GenDorisSvcName(name), DefaultDorisPortName, ns)
 }
 
-func GetThriftPodName(name string, ns string) ([]string, error) {
+func GetPodNames(labelSelector string, ns string) ([]string, error) {
 	path, _ := rootCmd.Flags().GetString(kubeconfig)
 	client, err := GetKubeClient(path)
 	if err != nil {
 		return nil, err
 	}
-	svc, err := client.CoreV1().Services(ns).Get(context.TODO(), GenThriftSvcName(name), metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-	selector := labels.Set(svc.Spec.Selector).AsSelector()
-
 	pods, err := client.CoreV1().Pods(ns).List(context.TODO(), metav1.ListOptions{
-		LabelSelector: selector.String()})
+		LabelSelector: labelSelector})
 
 	if err != nil {
 		return nil, err
@@ -512,9 +506,33 @@ func GetThriftPodName(name string, ns string) ([]string, error) {
 	return podNames, nil
 }
 
+func GetThriftPodName(name string, ns string) ([]string, error) {
+	path, _ := rootCmd.Flags().GetString(kubeconfig)
+	client, err := GetKubeClient(path)
+	if err != nil {
+		return nil, err
+	}
+	svc, err := client.CoreV1().Services(ns).Get(context.TODO(), GenThriftSvcName(name), metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	selector := labels.Set(svc.Spec.Selector).AsSelector()
+
+	return GetPodNames(selector.String(), ns)
+}
+
+func GetAirflowPodNames(name string, component string, ns string) ([]string, error) {
+	selector := labels.Set(map[string]string{
+		"release":   NineResourceName(name, DefaultToolAirflowName),
+		"component": component,
+	}).AsSelector()
+
+	return GetPodNames(selector.String(), ns)
+}
+
 func GetCustomAppRunningPid(podName string, ns string, prefix string) string {
 	var pCmd = []string{"ps", "-elf"}
-	output, err := runExecCommand(podName, ns, false, pCmd)
+	output, err := RunExecCommand(podName, ns, false, pCmd)
 	if err != nil {
 		fmt.Printf("Output:%s,Error: %s \n", output, err.Error())
 		return ""
@@ -535,7 +553,7 @@ func GetCustomAppRunningPid(podName string, ns string, prefix string) string {
 
 func KillCustomAppRunningPid(podName string, ns string, pid string) error {
 	var pCmd = []string{"kill", "-9", pid}
-	output, err := runExecCommand(podName, ns, false, pCmd)
+	output, err := RunExecCommand(podName, ns, false, pCmd)
 	if err != nil {
 		fmt.Printf("Output:%s,Error: %s \n", output, err.Error())
 		return err
@@ -664,6 +682,29 @@ func NineResourceName(name string, suffixs ...string) string {
 	}
 }
 
+func NineResourceLabels(cluster *nineinfrav1alpha1.NineCluster) map[string]string {
+	return map[string]string{
+		"cluster": cluster.Name,
+		"app":     DefaultClusterSign,
+	}
+}
+
+func GetNineCLusters(namespace string) (*nineinfrav1alpha1.NineClusterList, error) {
+	path, _ := rootCmd.Flags().GetString(kubeconfig)
+	nc, err := GetNineInfraClient(path)
+	if err != nil {
+		return nil, err
+	}
+	listClusters, err := nc.NineinfraV1alpha1().NineClusters(namespace).List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	if len(listClusters.Items) == 0 {
+		return listClusters, errors.New("NineCluster not found in namespace:" + namespace)
+	}
+	return listClusters, nil
+}
+
 func GetNineClusterStorageType(name string, namespace string) (string, error) {
 	path, _ := rootCmd.Flags().GetString(kubeconfig)
 	nc, err := GetNineInfraClient(path)
@@ -681,4 +722,36 @@ func GetNineClusterStorageType(name string, namespace string) (string, error) {
 		}
 	}
 	return FeaturesStorageValueMinio, nil
+}
+
+func GetNineClusterFeatures(name string, namespace string) (map[string]string, error) {
+	path, _ := rootCmd.Flags().GetString(kubeconfig)
+	nc, err := GetNineInfraClient(path)
+	if err != nil {
+		return nil, err
+	}
+	nineCluster, err := nc.NineinfraV1alpha1().NineClusters(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	return nineCluster.Spec.Features, nil
+}
+
+func GenLocalFile(filename string, data []byte) error {
+	file, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer func(file *os.File) {
+		err := file.Close()
+		if err != nil {
+			fmt.Printf("Error: %v \n", err)
+		}
+	}(file)
+	_, err = file.Write(data)
+	if err != nil {
+		return err
+	}
+	return nil
 }

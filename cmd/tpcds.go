@@ -461,7 +461,7 @@ func (t *tpcdsCmd) runTPCDS() error {
 		}
 		pCmd = append(pCmd, "--results-dir", fmt.Sprintf("%s", t.tpcdsOptions.ResultsDir))
 	}
-	_, err = runExecCommand(podNames[0], t.tpcdsOptions.NS, t.tpcdsOptions.TTY, pCmd)
+	_, err = RunExecCommand(podNames[0], t.tpcdsOptions.NS, t.tpcdsOptions.TTY, pCmd)
 	if err != nil {
 		return err
 	}

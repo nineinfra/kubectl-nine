@@ -9,10 +9,10 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 	"io"
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"net"
-	"os"
 	"strings"
 )
 
@@ -36,28 +36,32 @@ const (
 
 var (
 	toolsSubCommandList = "install,uninstall,list"
-	toolsSupported      = "superset,airflow,nifi,redis,zookeeper"
+	//toolsSupported      = "superset,airflow,nifi,redis,zookeeper"
+	toolsSupported = "superset,airflow,redis,zookeeper"
 )
 
 type toolsCmd struct {
-	out               io.Writer
-	errOut            io.Writer
-	subCommand        string
-	ns                string
-	nineName          string
-	toolkitArgs       []string // --nodes flag
-	deletePVC         bool
-	chartPath         string
-	storagepool       string
-	zkSvcName         string
-	nifiNodes         int
-	nifiSvcNodePort   int
-	nifiS2SHttpPort   int
-	nifiSvcType       string
-	airflowSvcType    string
-	airflowRepository string
-	airflowTag        string
-	supersetSvcType   string
+	out                 io.Writer
+	errOut              io.Writer
+	subCommand          string
+	ns                  string
+	nineName            string
+	toolkitArgs         []string // --nodes flag
+	deletePVC           bool
+	chartPath           string
+	storagepool         string
+	zkSvcName           string
+	zkClientPort        int
+	nifiNodes           int
+	nifiSvcNodePort     int
+	nifiS2SHttpPort     int
+	airflowWorkers      int
+	airflowDAGsDiskSize int
+	nifiSvcType         string
+	airflowSvcType      string
+	airflowRepository   string
+	airflowTag          string
+	supersetSvcType     string
 }
 
 type DatabasesConnection struct {
@@ -97,6 +101,8 @@ func newToolsCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	f.IntVar(&c.nifiNodes, "nifi-nodes", 1, "number of nifi nodes")
 	f.IntVar(&c.nifiSvcNodePort, "nifi-nodeport", DefaultToolNifiSvcNodePort, "nodePort value for nifi https")
 	f.IntVar(&c.nifiS2SHttpPort, "nifi-httpport", 8081, "site to site http port")
+	f.IntVar(&c.airflowWorkers, "airflow-workers", 1, "the replicas of the airflow workers")
+	f.IntVar(&c.airflowDAGsDiskSize, "airflow-dagsdisksize", 10, "the size of the airflow dags disk,Unit is Gi")
 	f.StringVar(&c.airflowSvcType, "airflow-svctype", DefaultToolAirflowSvcType, "service type for airflow ui")
 	f.StringVar(&c.supersetSvcType, "superset-svctype", DefaultToolSupersetSvcType, "service type for superset ui")
 	f.StringVar(&c.nifiSvcType, "nifi-svctype", DefaultToolNifiSvcType, "service type for nifi ui")
@@ -165,22 +171,8 @@ func (t *toolsCmd) deleteToolsPVC(namespace string) error {
 }
 
 func (t *toolsCmd) genSupersetSecretFile() error {
-	file, err := os.Create(DefaultToolSupersetSecretFile)
-	if err != nil {
-		return err
-	}
-	defer func(file *os.File) {
-		err := file.Close()
-		if err != nil {
-			fmt.Printf("Error: %v \n", err)
-		}
-	}(file)
-	data := []byte("SECRET_KEY='7frRUd8B0QXf23P1BUMlLdqdtz0UZMEs1dSyWiBMMs9Q7AZAVFjwfIr7'")
-	_, err = file.Write(data)
-	if err != nil {
-		return err
-	}
-	return nil
+	data := "SECRET_KEY='7frRUd8B0QXf23P1BUMlLdqdtz0UZMEs1dSyWiBMMs9Q7AZAVFjwfIr7'"
+	return GenLocalFile(DefaultToolSupersetSecretFile, []byte(data))
 }
 
 func (t *toolsCmd) createDorisDatabase(ip string, port int32, user string, password string) error {
@@ -238,21 +230,7 @@ func (t *toolsCmd) genSupersetDataSourcesFile() error {
 	if err != nil {
 		return err
 	}
-	file, err := os.Create(DefaultToolSupersetSDataSourcesFile)
-	if err != nil {
-		return err
-	}
-	defer func(file *os.File) {
-		err := file.Close()
-		if err != nil {
-			fmt.Printf("Error: %v \n", err)
-		}
-	}(file)
-	_, err = file.Write(yamlData)
-	if err != nil {
-		return err
-	}
-	return nil
+	return GenLocalFile(DefaultToolSupersetSDataSourcesFile, yamlData)
 }
 
 func (t *toolsCmd) genSupersetParameters(relName string, parameters []string) []string {
@@ -288,34 +266,36 @@ func (t *toolsCmd) genZookeeperParameters(relName string, parameters []string) [
 }
 
 func (t *toolsCmd) genNifiParameters(relName string, parameters []string) []string {
-	var nodePortIp string
-	if DefaultAccessHost != "" {
-		nodePortIp = DefaultAccessHost
-	} else {
-		path, _ := rootCmd.Flags().GetString(kubeconfig)
-		var err error
-		nodePortIp, err = GetKubeHost(path)
-		if err != nil {
-			fmt.Printf("cannot get host ip for the nifi web access,err:%s,you can specify the host ip through --access-host\n", err.Error())
-		}
-	}
+	//var nodePortIp string
+	//if DefaultAccessHost != "" {
+	//	nodePortIp = DefaultAccessHost
+	//} else {
+	//	path, _ := rootCmd.Flags().GetString(kubeconfig)
+	//	var err error
+	//	nodePortIp, err = GetKubeHost(path)
+	//	if err != nil {
+	//		fmt.Printf("cannot get host ip for the nifi web access,err:%s,you can specify the host ip through --access-host\n", err.Error())
+	//	}
+	//}
 	params := append(parameters, []string{"--set", "fullnameOverride=" + relName}...)
 	params = append(params, []string{"--set", fmt.Sprintf("replicaCount=%d", t.nifiNodes)}...)
-	params = append(params, []string{"--set", "auth.enabled=false"}...)
 	params = append(params, []string{"--set", fmt.Sprintf("persistence.enabled=true")}...)
 	params = append(params, []string{"--set", fmt.Sprintf("persistence.storageClass=%s", t.storagepool)}...)
 	params = append(params, []string{"--set", fmt.Sprintf("service.type=%s", t.nifiSvcType)}...)
 	params = append(params, []string{"--set", fmt.Sprintf("service.nodePort=%d", t.nifiSvcNodePort)}...)
-	params = append(params, []string{"--set", fmt.Sprintf("properties.webProxyHost=%s:%d", nodePortIp, t.nifiSvcNodePort)}...)
+	//params = append(params, []string{"--set-string", fmt.Sprintf("properties.webProxyHost=\"%s:%d,%s,%s:%d\"", nodePortIp, t.nifiSvcNodePort, NineResourceName(t.nineName), NineResourceName(t.nineName), 8443)}...)
+	//params = append(params, []string{"--set-string", fmt.Sprintf("properties.webProxyHost=%s:%d", nodePortIp, t.nifiSvcNodePort)}...)
 	params = append(params, []string{"--set", fmt.Sprintf("auth.singleUser.username=%s", DefaultToolNifiUserName)}...)
 	params = append(params, []string{"--set", fmt.Sprintf("auth.singleUser.password=%s", DefaultToolNifiUserPWD)}...)
+	params = append(params, []string{"--set", fmt.Sprintf("properties.sensitiveKey=%s", DefaultToolNifiUserPWD)}...)
 	params = append(params, []string{"--set", fmt.Sprintf("sidecar.tag=%s", DefaultToolNifiSideCarTag)}...)
 	params = append(params, []string{"--set", "zookeeper.enabled=false"}...)
 	if t.nifiNodes > 1 {
 		params = append(params, []string{"--set", fmt.Sprintf("zookeeper.url=%s", t.zkSvcName)}...)
+		params = append(params, []string{"--set", fmt.Sprintf("zookeeper.port=%d", t.zkClientPort)}...)
 		params = append(params, []string{"--set", fmt.Sprintf("properties.isNode=true")}...)
-		params = append(params, []string{"--set", fmt.Sprintf("properties.httpPort=%d", t.nifiS2SHttpPort)}...)
-		params = append(params, []string{"--set", fmt.Sprintf("properties.siteToSite.secure=false")}...)
+		//params = append(params, []string{"--set", fmt.Sprintf("properties.needClientAuth=true")}...)
+		params = append(params, []string{"--set", fmt.Sprintf("service.sessionAffinity=ClientIP")}...)
 	}
 	return params
 }
@@ -332,14 +312,20 @@ func (t *toolsCmd) genAirflowParameters(relName string, parameters []string) []s
 	params = append(params, []string{"--set", fmt.Sprintf("webserverSecretKey=%s", DefaultToolAirflowWebServerSecretKey)}...)
 	params = append(params, []string{"--set", fmt.Sprintf("webserver.service.type=%s", t.airflowSvcType)}...)
 	params = append(params, []string{"--set", fmt.Sprintf("logs.persistence.size=%s", DefaultToolAirflowDiskSize)}...)
+	params = append(params, []string{"--set", fmt.Sprintf("workers.replicas=%d", t.airflowWorkers)}...)
 	params = append(params, []string{"--set", fmt.Sprintf("workers.persistence.size=%s", DefaultToolAirflowDiskSize)}...)
 	params = append(params, []string{"--set", fmt.Sprintf("triggerer.persistence.size=%s", DefaultToolAirflowDiskSize)}...)
 	params = append(params, []string{"--set", fmt.Sprintf("workers.persistence.storageClassName=%s", t.storagepool)}...)
 	params = append(params, []string{"--set", fmt.Sprintf("triggerer.persistence.storageClassName=%s", t.storagepool)}...)
 	params = append(params, []string{"--set", fmt.Sprintf("dags.persistence.storageClassName=%s", t.storagepool)}...)
+	params = append(params, []string{"--set", fmt.Sprintf("dags.persistence.enabled=true")}...)
+	params = append(params, []string{"--set", fmt.Sprintf("dags.persistence.size=%dGi", t.airflowDAGsDiskSize)}...)
+	//params = append(params, []string{"--set", fmt.Sprintf("dags.gitSync.enabled=true")}...)
+	params = append(params, []string{"--set", fmt.Sprintf("config.core.test_connection=Enabled")}...)
 	params = append(params, []string{"--set", "statsd.enabled=false"}...)
 	params = append(params, []string{"--set", "redis.enabled=false"}...)
 	params = append(params, []string{"--set", "statsd.enabled=false"}...)
+	params = append(params, []string{"--set", "postgresql.enabled=false"}...)
 	params = append(params, []string{"--set", "postgresql.enabled=false"}...)
 	return params
 }
@@ -350,7 +336,7 @@ func (t *toolsCmd) genRedisParameters(relName string, parameters []string) []str
 	return params
 }
 
-func (t *toolsCmd) createDatabase(tool string) error {
+func (t *toolsCmd) dropDatabase(name, user string) error {
 	pgIP, pgPort := GetPostgresIpAndPort(t.nineName, t.ns)
 	if pgIP == "" || pgPort == 0 {
 		return errors.New("invalid Postgres Access Info")
@@ -362,6 +348,63 @@ func (t *toolsCmd) createDatabase(tool string) error {
 		return err
 	}
 	defer db.Close()
+	_, err = db.Exec("DROP DATABASE IF EXISTS " + name)
+	if err != nil {
+		fmt.Printf("Error:%v\n", err)
+		return err
+	}
+
+	_, err = db.Exec("DROP USER IF EXISTS " + user)
+	if err != nil {
+		fmt.Printf("Error:%v\n", err)
+		return err
+	}
+
+	return nil
+}
+
+func (t *toolsCmd) dropToolDatabase(tool string) error {
+	var dbUser, dbName string
+	switch tool {
+	case DefaultToolAirflowName:
+		dbUser = DefaultToolAirflowDBUser
+		dbName = DefaultToolAirflowName
+	case DefaultToolSupersetName:
+		dbUser = DefaultToolSupersetDBUser
+		dbName = DefaultToolSupersetName
+	}
+	if dbUser != "" && dbName != "" {
+		return t.dropDatabase(dbName, dbUser)
+	}
+	return nil
+}
+
+func (t *toolsCmd) createDatabase(name, user, pwd string) error {
+	pgIP, pgPort := GetPostgresIpAndPort(t.nineName, t.ns)
+	if pgIP == "" || pgPort == 0 {
+		return errors.New("invalid Postgres Access Info")
+	}
+	connStr := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", pgIP, pgPort, "postgres", "", "")
+	db, err := sql.Open("postgres", connStr)
+	if err != nil {
+		fmt.Printf("Error:%v\n", err)
+		return err
+	}
+	defer db.Close()
+	_, err = db.Exec("CREATE USER " + user + " WITH PASSWORD '" + pwd + "'")
+	if err != nil && !strings.Contains(err.Error(), "already exists") {
+		fmt.Printf("Error:%v\n", err)
+		return err
+	}
+	_, err = db.Exec("CREATE DATABASE " + name + " WITH OWNER " + pwd)
+	if err != nil && !strings.Contains(err.Error(), "already exists") {
+		fmt.Printf("Error:%v\n", err)
+		return err
+	}
+	return nil
+}
+
+func (t *toolsCmd) createToolDatabase(tool string) error {
 	var dbUser, dbName, dbPWD string
 	switch tool {
 	case DefaultToolAirflowName:
@@ -374,17 +417,7 @@ func (t *toolsCmd) createDatabase(tool string) error {
 		dbName = DefaultToolSupersetName
 	}
 
-	_, err = db.Exec("CREATE USER " + dbUser + " WITH PASSWORD '" + dbPWD + "'")
-	if err != nil && !strings.Contains(err.Error(), "already exists") {
-		fmt.Printf("Error:%v\n", err)
-		return err
-	}
-	_, err = db.Exec("CREATE DATABASE " + dbName + " WITH OWNER " + dbUser)
-	if err != nil && !strings.Contains(err.Error(), "already exists") {
-		fmt.Printf("Error:%v\n", err)
-		return err
-	}
-	return nil
+	return t.createDatabase(dbName, dbUser, dbPWD)
 }
 
 func (t *toolsCmd) installRedis(parameters []string) error {
@@ -401,7 +434,7 @@ func (t *toolsCmd) installAirflow(parameters []string) error {
 	if err != nil {
 		return err
 	}
-	err = t.createDatabase(DefaultToolAirflowName)
+	err = t.createToolDatabase(DefaultToolAirflowName)
 	if err != nil {
 		return err
 	}
@@ -418,7 +451,7 @@ func (t *toolsCmd) installSuperset(parameters []string) error {
 	if err != nil {
 		return err
 	}
-	err = t.createDatabase(DefaultToolSupersetName)
+	err = t.createToolDatabase(DefaultToolSupersetName)
 	if err != nil {
 		return err
 	}
@@ -430,22 +463,32 @@ func (t *toolsCmd) installSuperset(parameters []string) error {
 	return nil
 }
 
-func (t *toolsCmd) checkZookeeperCluster() bool {
-	epName := fmt.Sprintf("%s", NineResourceName(t.nineName, fmt.Sprintf("-%s", DefaultZookeeperHLSVCNameSuffix)))
-	err, ready, _ := CheckEndpointsReady(epName, t.ns, DefaultZookeeperReplicas)
+func (t *toolsCmd) checkZookeeperCluster() (bool, *corev1.Endpoints) {
+	epName := fmt.Sprintf("%s", NineResourceName(t.nineName, DefaultZookeeperHLSVCNameSuffix))
+	err, ready, endpoints := CheckEndpointsReady(epName, t.ns, DefaultZookeeperReplicas)
 	if err != nil && !k8serrors.IsNotFound(err) {
-		return false
+		return false, nil
 	}
 	if k8serrors.IsNotFound(err) {
-		return false
+		return false, nil
 	}
-	return ready
+
+	return ready, endpoints
 }
 
 func (t *toolsCmd) installZookeeper(parameters []string) error {
-	if t.checkZookeeperCluster() {
+	ready, endpoints := t.checkZookeeperCluster()
+	if ready {
 		fmt.Printf("A zookeeper cluster exists,no need to install!\n")
-		t.zkSvcName = fmt.Sprintf("%s", NineResourceName(t.nineName, fmt.Sprintf("-%s", DefaultZookeeperHLSVCNameSuffix)))
+		t.zkSvcName = fmt.Sprintf("%s", NineResourceName(t.nineName, DefaultZookeeperHLSVCNameSuffix))
+		for _, v := range endpoints.Subsets[0].Ports {
+			if v.Name == DefaultZookeeperClientSvcName {
+				t.zkClientPort = int(v.Port)
+			}
+		}
+		if t.zkClientPort == 0 {
+			t.zkClientPort = DefaultZookeeperClientSvcPort
+		}
 		return nil
 	}
 	relName := NineResourceName(t.nineName, DefaultToolZookeeperName)
@@ -454,6 +497,7 @@ func (t *toolsCmd) installZookeeper(parameters []string) error {
 		return err
 	}
 	t.zkSvcName = NineResourceName(t.nineName, DefaultZookeeperHLSVCNameSuffix)
+	t.zkClientPort = DefaultZookeeperClientSvcPort
 	return nil
 }
 
@@ -471,19 +515,15 @@ func (t *toolsCmd) installNifi(parameters []string) error {
 }
 
 func (t *toolsCmd) install(parameters []string) error {
-	path, _ := rootCmd.Flags().GetString(kubeconfig)
-	nc, err := GetNineInfraClient(path)
+	listClusters, err := GetNineCLusters(t.ns)
 	if err != nil {
 		return err
-	}
-	listClusters, err := nc.NineinfraV1alpha1().NineClusters(t.ns).List(context.TODO(), metav1.ListOptions{})
-	if err != nil {
-		return err
-	}
-	if len(listClusters.Items) == 0 {
-		return errors.New("NineCluster not found in namespace:" + t.ns)
 	}
 	t.nineName = listClusters.Items[0].Name
+	err = t.createDatabase(DefaultNineInfraDBName, DefaultNineInfraDBUser, DefaultNineInfraDBPwd)
+	if err != nil {
+		return err
+	}
 
 	for _, v := range t.toolkitArgs {
 		switch v {
@@ -499,10 +539,17 @@ func (t *toolsCmd) install(parameters []string) error {
 			err = t.installZookeeper(parameters)
 		}
 	}
+
 	return err
 }
 
 func (t *toolsCmd) uninstall(parameters []string) error {
+	listClusters, err := GetNineCLusters(t.ns)
+	if err != nil {
+		return err
+	}
+	t.nineName = listClusters.Items[0].Name
+
 	flags := strings.Join(parameters, " ")
 	for _, v := range t.toolkitArgs {
 		relName := NineResourceName(t.nineName, v)
@@ -511,6 +558,17 @@ func (t *toolsCmd) uninstall(parameters []string) error {
 			fmt.Printf("Error: %v \n", err)
 			return err
 		}
+		err = t.dropToolDatabase(v)
+		if err != nil {
+			fmt.Printf("Error: %v \n", err)
+			return err
+		}
+	}
+
+	err = t.dropDatabase(DefaultNineInfraDBName, DefaultNineInfraDBUser)
+	if err != nil {
+		fmt.Printf("Error: %v \n", err)
+		return err
 	}
 
 	if t.deletePVC {

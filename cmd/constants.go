@@ -14,10 +14,14 @@ const (
 	GiMultiplier             = 1024 * 1024 * 1024
 	DefaultSqlAccessUserName = "kyuubi"
 	DefaultSqlAccessPassword = "kyuubi"
+	DefaultClusterSign       = "nine"
 )
 const (
 	DefaultPGRWSVCNameSuffix             = DefaultNineSuffix + "-pg-rw"
 	DefaultPGRWPortName                  = "postgres"
+	DefaultNineInfraDBUser               = "nineinfra"
+	DefaultNineInfraDBPwd                = "nineinfra"
+	DefaultNineInfraDBName               = "nineinfra"
 	DefaultToolAirflowDBUser             = "airflow"
 	DefaultToolAirflowDBPwd              = "airflow"
 	DefaultToolAirflowDBName             = "airflow"
@@ -35,7 +39,11 @@ const (
 	DefaultToolNifiUserName              = "admin"
 	DefaultToolNifiUserPWD               = "nineinfraadmin"
 	DefaultZookeeperHLSVCNameSuffix      = "zookeeper-headless"
+	DefaultZookeeperClientSvcPort        = 2181
+	DefaultZookeeperClientSvcName        = "client"
 	DefaultZookeeperPVCLabelKey          = "app.kubernetes.io/instance"
+	DefaultAirflowDagsPath               = "/opt/airflow/dags"
+	DefaultHdfsSiteFileName              = "hdfs-site.xml"
 )
 
 const (
@@ -143,7 +151,7 @@ var DefaultChartList = map[string]string{
 var DefaultToolsChartList = map[string]string{
 	"airflow":   "1.12.0",
 	"superset":  "0.11.2",
-	"nifi":      "1.1.6",
+	"nifi":      "1.2.0",
 	"zookeeper": "12.3.3",
 	"redis":     "0.7.5",
 }
