@@ -127,14 +127,15 @@ type XmlConfiguration struct {
 }
 
 type onekeyCmd struct {
-	out        io.Writer
-	errOut     io.Writer
-	subCommand string
-	ns         string
-	nineName   string
-	dagsPath   string
-	sinkTable  string
-	jdbcQuery  string
+	out             io.Writer
+	errOut          io.Writer
+	subCommand      string
+	ns              string
+	nineName        string
+	dagsPath        string
+	sinkTable       string
+	jdbcQuery       string
+	partitionColumn string
 }
 
 func newOnekeyCmd(out io.Writer, errOut io.Writer) *cobra.Command {
@@ -160,6 +161,7 @@ func newOnekeyCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	f := cmd.Flags()
 	f.StringVarP(&c.subCommand, "command", "c", "", fmt.Sprintf("command for tools,%s are supported now", onekeySubCommandList))
 	f.StringVar(&c.jdbcQuery, "jdbc-query", "", "jdbc query for the etl")
+	f.StringVar(&c.partitionColumn, "partition-column", "", "the column name for parallelism's partition")
 	f.StringVar(&c.dagsPath, "dags-path", "", "local path of the airflow dags")
 	f.StringVar(&c.sinkTable, "sink-table", "test", "name of the sink table")
 	f.StringVarP(&c.ns, "namespace", "n", "", "k8s namespace for the NineCluster")
@@ -203,7 +205,9 @@ func (o *onekeyCmd) structToKeyValueString(s interface{}) string {
 		tag := field.Tag.Get("yaml")
 		if tag != "" {
 			fieldValue := o.formatValue(value)
-			result = append(result, fmt.Sprintf("    %s=%s", tag, fieldValue))
+			if !strings.EqualFold(fieldValue, "\"\"") && !strings.EqualFold(fieldValue, "0") {
+				result = append(result, fmt.Sprintf("    %s=%s", tag, fieldValue))
+			}
 		}
 	}
 	return strings.Join(result, "\n")
@@ -464,8 +468,8 @@ func (o *onekeyCmd) createEtlConfigmap(cluster *nineinfrav1alpha1.NineCluster) e
 		}
 		conf := &pg2hdfsConf{
 			Env: map[string]string{
-				"parallelism": "10",
-				"job.mode":    "BATCH",
+				// for spark on jdk17
+				"spark.driver.defaultJavaOptions": "\"--add-exports java.base/sun.nio.ch=ALL-UNNAMED\"",
 			},
 			Source: map[string]stJdbcSource{
 				"Jdbc": {
@@ -474,19 +478,25 @@ func (o *onekeyCmd) createEtlConfigmap(cluster *nineinfrav1alpha1.NineCluster) e
 					User:     DefaultNineInfraDBUser,
 					Password: DefaultNineInfraDBPwd,
 					Query:    o.jdbcQuery,
+					// if set to "",seatunnel will retuen no data.
+					Partition_column:             o.partitionColumn,
+					Connection_check_timeout_sec: 30,
 				},
 			},
 			Sink: map[string]stHdfsSink{
 				"HdfsFile": {
-					DefaultFS: coreSiteMap["fs.defaultFS"],
-					Path:      "/nineinfra/datahouse/",
-					Tmp_path:  "/nineinfra/datahouse/tmp",
-					//Hdfs_site_path:   fmt.Sprintf("%s/%s", "/opt/spark/conf", DefaultHdfsSiteFileName),
-					Hdfs_site_path:   "/opt/spark/conf",
+					DefaultFS:        coreSiteMap["fs.defaultFS"],
+					Path:             "/nineinfra/datahouse/seatunnel",
+					Tmp_path:         "/nineinfra/datahouse/tmp",
+					Hdfs_site_path:   fmt.Sprintf("%s/%s", "/opt/spark/conf", DefaultHdfsSiteFileName),
 					File_format_type: "text",
-					Field_delimiter:  "\\t",
+					Field_delimiter:  ",",
 					Row_delimiter:    "\\n",
-					Compress_codec:   "lzo",
+					Compress_codec:   "none",
+					// if set to zero, seatunnel will write a file per row
+					Batch_size:           10000000,
+					Custom_filename:      true,
+					File_name_expression: "${now}",
 				},
 			},
 		}
