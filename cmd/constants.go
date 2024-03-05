@@ -64,6 +64,7 @@ const (
 	FeaturesStorageValueHdfs  = "hdfs"
 	FeaturesStorageValueMinio = "minio"
 	FeaturesOlapValueDoris    = "doris"
+	FeaturesPostgresqlCDCKey  = "postgresql-cdc"
 )
 
 const (

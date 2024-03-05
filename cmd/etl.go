@@ -19,19 +19,116 @@ import (
 )
 
 const (
-	onekeyDesc    = `'onekey' command allows you to complete everything with the NineCluster you want with just one click.`
-	onekeyExample = `1. Install everything for the NineCluster
-   $ kubectl nine onekey --command=install --namespace=ns
+	etlDesc    = `'etl' command help you to complete the ETL-related configurations with the NineCluster.`
+	etlExample = `1. Install everything for the NineCluster
+   $ kubectl nine etl --command=install --namespace=ns
 
 2. Uninstall everything of the NineCluster from a namespace
-   $ kubectl nine onekey --command=uninstall --namespace=ns`
+   $ kubectl nine etl --command=uninstall --namespace=ns`
 )
 
 var (
-	onekeySubCommandList = "install,uninstall,list"
+	etlSourceList     = "postgresql"
+	etlSinkList       = "hdfs,minio,doris"
+	etlSubCommandList = "configure,update,clear"
 )
 
-type onekeyCmd struct {
+type stJdbcSource struct {
+	Url                          string `yaml:"url"`
+	Driver                       string `yaml:"driver"`
+	User                         string `yaml:"user"`
+	Password                     string `yaml:"password"`
+	Query                        string `yaml:"query"`
+	Connection_check_timeout_sec int    `yaml:"connection_check_timeout_sec"`
+	Partition_column             string `yaml:"partition_column"`
+	//Partition_lower_bound        big.Float         `yaml:"partition_lower_bound"`
+	//Partition_upper_bound        big.Float         `yaml:"partition_upper_bound"`
+	Partition_num int               `yaml:"partition_num"`
+	Fetch_size    int               `yaml:"fetch_size"`
+	Properties    map[string]string `yaml:"properties"`
+}
+
+type stSqlTransform struct {
+	Source_table_name string `yaml:"source_table_name"`
+	Result_table_name string `yaml:"result_table_name"`
+	Query             string `yaml:"query"`
+}
+
+type stHdfsSink struct {
+	DefaultFS                        string   `yaml:"fs.defaultFS"`
+	Path                             string   `yaml:"path"`
+	Tmp_path                         string   `yaml:"tmp_path"`
+	Hdfs_site_path                   string   `yaml:"hdfs_site_path"`
+	Custom_filename                  bool     `yaml:"custom_filename"`
+	File_name_expression             string   `yaml:"file_name_expression"`
+	Filename_time_format             string   `yaml:"filename_time_format"`
+	File_format_type                 string   `yaml:"file_format_type"`
+	Field_delimiter                  string   `yaml:"field_delimiter"`
+	Row_delimiter                    string   `yaml:"row_delimiter"`
+	Have_partition                   bool     `yaml:"have_partition"`
+	Partition_by                     []string `yaml:"partition_by"`
+	Partition_dir_expression         string   `yaml:"partition_dir_expression"`
+	Is_partition_field_write_in_file bool     `yaml:"is_partition_field_write_in_file"`
+	Sink_columns                     []string `yaml:"sink_columns"`
+	Is_enable_transaction            bool     `yaml:"is_enable_transaction"`
+	Batch_size                       int      `yaml:"batch_size"`
+	Compress_codec                   string   `yaml:"compress_codec"`
+	Krb5_path                        string   `yaml:"krb5_path"`
+	Kerberos_principal               string   `yaml:"kerberos_principal"`
+	Kerberos_keytab_path             string   `yaml:"kerberos_keytab_path"`
+	Max_rows_in_memory               int      `yaml:"max_rows_in_memory"`
+	Sheet_name                       string   `yaml:"sheet_name"`
+}
+
+type stDorisSink struct {
+	Fenodes                        string            `yaml:"fenodes"`
+	Query_port                     int               `yaml:"query-port"`
+	Username                       string            `yaml:"username"`
+	Password                       string            `yaml:"password"`
+	Database                       string            `yaml:"database"`
+	Table                          string            `yaml:"table"`
+	Identifier                     string            `yaml:"table.identifier"`
+	Label_prefix                   string            `yaml:"sink.label-prefix"`
+	Enable_2pc                     bool              `yaml:"sink.enable-2pc"`
+	Enable_delete                  bool              `yaml:"sink.enable-delete"`
+	Check_interval                 int               `yaml:"sink.check-interval"`
+	Max_retries                    int               `yaml:"sink.max-retries"`
+	Buffer_size                    int               `yaml:"sink.buffer-size"`
+	Buffer_count                   int               `yaml:"sink.buffer-count"`
+	Batch_size                     int               `yaml:"sink.batch.size"`
+	Needs_unsupported_type_casting bool              `yaml:"needs_unsupported_type_casting"`
+	Schema_save_mode               string            `yaml:"schema_save_mode"`
+	Data_save_mode                 string            `yaml:"data_save_mode"`
+	Save_mode_create_template      string            `yaml:"save_mode_create_template"`
+	Custom_sql                     string            `yaml:"custom_sql"`
+	Config                         map[string]string `yaml:"doris.config"`
+}
+
+type pg2hdfsConf struct {
+	Env       map[string]string         `yaml:"env"`
+	Source    map[string]stJdbcSource   `yaml:"source"`
+	Transform map[string]stSqlTransform `yaml:"transform"`
+	Sink      map[string]stHdfsSink     `yaml:"sink"`
+}
+
+type pg2dorisConf struct {
+	Env       map[string]string         `yaml:"env"`
+	Source    map[string]stJdbcSource   `yaml:"source"`
+	Transform map[string]stSqlTransform `yaml:"transform"`
+	Sink      map[string]stDorisSink    `yaml:"sink"`
+}
+
+type XmlProperty struct {
+	Name  string `xml:"name"`
+	Value string `xml:"value"`
+}
+
+type XmlConfiguration struct {
+	XmlName    xml.Name      `xml:"configuration"`
+	Properties []XmlProperty `xml:"property"`
+}
+
+type etlCmd struct {
 	out             io.Writer
 	errOut          io.Writer
 	subCommand      string
@@ -43,14 +140,14 @@ type onekeyCmd struct {
 	partitionColumn string
 }
 
-func newOnekeyCmd(out io.Writer, errOut io.Writer) *cobra.Command {
-	c := &onekeyCmd{out: out, errOut: errOut}
+func newetlCmd(out io.Writer, errOut io.Writer) *cobra.Command {
+	c := &etlCmd{out: out, errOut: errOut}
 
 	cmd := &cobra.Command{
-		Use:     "onekey",
-		Short:   "Allows you to complete everything with the NineCluster you want with just one click.",
-		Long:    onekeyDesc,
-		Example: onekeyExample,
+		Use:     "etl",
+		Short:   "Helps you to complete the ETL-related configurations with the NineCluster.",
+		Long:    etlDesc,
+		Example: etlExample,
 		Args: func(cmd *cobra.Command, args []string) error {
 			return c.validate(args)
 		},
@@ -64,7 +161,7 @@ func newOnekeyCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	}
 	cmd = DisableHelp(cmd)
 	f := cmd.Flags()
-	f.StringVarP(&c.subCommand, "command", "c", "", fmt.Sprintf("command for tools,%s are supported now", onekeySubCommandList))
+	f.StringVarP(&c.subCommand, "command", "c", "", fmt.Sprintf("command for tools,%s are supported now", etlSubCommandList))
 	f.StringVar(&c.jdbcQuery, "jdbc-query", "", "jdbc query for the etl")
 	f.StringVar(&c.partitionColumn, "partition-column", "", "the column name for parallelism's partition")
 	f.StringVar(&c.dagsPath, "dags-path", "", "local path of the airflow dags")
@@ -74,15 +171,15 @@ func newOnekeyCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	return cmd
 }
 
-func (o *onekeyCmd) validate(args []string) error {
-	if !strings.Contains(onekeySubCommandList, o.subCommand) {
-		return fmt.Errorf("unsupported subcommand %s, only %s supported", o.subCommand, onekeySubCommandList)
+func (o *etlCmd) validate(args []string) error {
+	if !strings.Contains(etlSubCommandList, o.subCommand) {
+		return fmt.Errorf("unsupported subcommand %s, only %s supported", o.subCommand, etlSubCommandList)
 	}
 
 	return nil
 }
 
-func (o *onekeyCmd) formatValue(value interface{}) string {
+func (o *etlCmd) formatValue(value interface{}) string {
 	switch v := value.(type) {
 	case string:
 		return fmt.Sprintf(`"%v"`, v)
@@ -99,7 +196,7 @@ func (o *onekeyCmd) formatValue(value interface{}) string {
 	}
 }
 
-func (o *onekeyCmd) structToKeyValueString(s interface{}) string {
+func (o *etlCmd) structToKeyValueString(s interface{}) string {
 	v := reflect.ValueOf(s)
 	t := v.Type()
 	var result []string
@@ -118,7 +215,30 @@ func (o *onekeyCmd) structToKeyValueString(s interface{}) string {
 	return strings.Join(result, "\n")
 }
 
-func (o *onekeyCmd) pg2hdfsConf2String(conf *pg2hdfsConf) (string, error) {
+//func mapToStruct(m map[string]interface{}) etlCmd {
+//	o := etlCmd{}
+//	val := reflect.ValueOf(&o).Elem()
+//	typ := val.Type()
+//
+//	for i := 0; i < val.NumField(); i++ {
+//		field := typ.Field(i)
+//		tag := field.Tag.Get("yaml")
+//		if tag == "" {
+//			continue
+//		}
+//
+//		if v, ok := m[tag]; ok {
+//			f := val.Field(i)
+//			if f.CanSet() {
+//				f.Set(reflect.ValueOf(v))
+//			}
+//		}
+//	}
+//
+//	return o
+//}
+
+func (o *etlCmd) pg2hdfsConf2String(conf *pg2hdfsConf) (string, error) {
 	var sb strings.Builder
 	//env
 	sb.WriteString("env{\n")
@@ -166,7 +286,7 @@ func (o *onekeyCmd) pg2hdfsConf2String(conf *pg2hdfsConf) (string, error) {
 	return sb.String(), nil
 }
 
-func (o *onekeyCmd) pg2dorisConf2String(conf *pg2dorisConf) (string, error) {
+func (o *etlCmd) pg2dorisConf2String(conf *pg2dorisConf) (string, error) {
 	var sb strings.Builder
 	//env
 	sb.WriteString("env{\n")
@@ -214,7 +334,7 @@ func (o *onekeyCmd) pg2dorisConf2String(conf *pg2dorisConf) (string, error) {
 	return sb.String(), nil
 }
 
-func (o *onekeyCmd) constructConfigmap(cluster *nineinfrav1alpha1.NineCluster, suffix string, conf string) (*corev1.ConfigMap, error) {
+func (o *etlCmd) constructConfigmap(cluster *nineinfrav1alpha1.NineCluster, suffix string, conf string) (*corev1.ConfigMap, error) {
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      NineResourceName(cluster.Name, suffix),
@@ -235,7 +355,7 @@ func (o *onekeyCmd) constructConfigmap(cluster *nineinfrav1alpha1.NineCluster, s
 	return cm, nil
 }
 
-func (o *onekeyCmd) deleteConfigmap(cluster *nineinfrav1alpha1.NineCluster, suffix string) error {
+func (o *etlCmd) deleteConfigmap(cluster *nineinfrav1alpha1.NineCluster, suffix string) error {
 	path, _ := rootCmd.Flags().GetString(kubeconfig)
 	c, err := GetKubeClient(path)
 	if err != nil {
@@ -248,7 +368,7 @@ func (o *onekeyCmd) deleteConfigmap(cluster *nineinfrav1alpha1.NineCluster, suff
 	return nil
 }
 
-func (o *onekeyCmd) createConfigmap(cluster *nineinfrav1alpha1.NineCluster, suffix string, conf string) error {
+func (o *etlCmd) createConfigmap(cluster *nineinfrav1alpha1.NineCluster, suffix string, conf string) error {
 	desiredCm, err := o.constructConfigmap(cluster, suffix, conf)
 	if err != nil {
 		return err
@@ -278,7 +398,7 @@ func (o *onekeyCmd) createConfigmap(cluster *nineinfrav1alpha1.NineCluster, suff
 	return nil
 }
 
-func (o *onekeyCmd) getHdfsConf(cluster *nineinfrav1alpha1.NineCluster) (string, string, error) {
+func (o *etlCmd) getHdfsConf(cluster *nineinfrav1alpha1.NineCluster) (string, string, error) {
 	path, _ := rootCmd.Flags().GetString(kubeconfig)
 	c, err := GetKubeClient(path)
 	if err != nil {
@@ -292,7 +412,7 @@ func (o *onekeyCmd) getHdfsConf(cluster *nineinfrav1alpha1.NineCluster) (string,
 	return hdfsCm.Data["core-site.xml"], hdfsCm.Data["hdfs-site.xml"], nil
 }
 
-func (o *onekeyCmd) uploadFileToAirflow(filename string, cluster *nineinfrav1alpha1.NineCluster) error {
+func (o *etlCmd) uploadFileToAirflow(filename string, cluster *nineinfrav1alpha1.NineCluster) error {
 	podNames, err := GetAirflowPodNames(cluster.Name, "scheduler", cluster.Namespace)
 	if err != nil {
 		return err
@@ -304,7 +424,7 @@ func (o *onekeyCmd) uploadFileToAirflow(filename string, cluster *nineinfrav1alp
 	return nil
 }
 
-func (o *onekeyCmd) createEtlConfigmap(cluster *nineinfrav1alpha1.NineCluster) error {
+func (o *etlCmd) createEtlConfigmap(cluster *nineinfrav1alpha1.NineCluster) error {
 	storageType, err := GetNineClusterStorageType(o.nineName, o.ns)
 	if err != nil {
 		return err
@@ -360,7 +480,7 @@ func (o *onekeyCmd) createEtlConfigmap(cluster *nineinfrav1alpha1.NineCluster) e
 					User:     DefaultNineInfraDBUser,
 					Password: DefaultNineInfraDBPwd,
 					Query:    o.jdbcQuery,
-					// if set to "",seatunnel will retuen no data.
+					// if set to "",seatunnel will return no data.
 					Partition_column:             o.partitionColumn,
 					Connection_check_timeout_sec: 30,
 				},
@@ -368,14 +488,14 @@ func (o *onekeyCmd) createEtlConfigmap(cluster *nineinfrav1alpha1.NineCluster) e
 			Sink: map[string]stHdfsSink{
 				"HdfsFile": {
 					DefaultFS:        coreSiteMap["fs.defaultFS"],
-					Path:             "/nineinfra/datahouse/seatunnel",
+					Path:             "/nineinfra/datahouse/ods",
 					Tmp_path:         "/nineinfra/datahouse/tmp",
 					Hdfs_site_path:   fmt.Sprintf("%s/%s", "/opt/spark/conf", DefaultHdfsSiteFileName),
 					File_format_type: "text",
 					Field_delimiter:  ",",
 					Row_delimiter:    "\\n",
 					Compress_codec:   "none",
-					// if set to zero, seatunnel will write a file per row
+					// if set to zero, seatunnel will write one file per row
 					Batch_size:           10000000,
 					Custom_filename:      true,
 					File_name_expression: "${now}",
@@ -444,7 +564,7 @@ func (o *onekeyCmd) createEtlConfigmap(cluster *nineinfrav1alpha1.NineCluster) e
 	return nil
 }
 
-func (o *onekeyCmd) deleteEtlConfigmap() error {
+func (o *etlCmd) deleteEtlConfigmap() error {
 	listClusters, err := GetNineCLusters(o.ns)
 	if err != nil {
 		return err
@@ -486,7 +606,7 @@ func (o *onekeyCmd) deleteEtlConfigmap() error {
 	return nil
 }
 
-func (o *onekeyCmd) uninstall(parameters []string) error {
+func (o *etlCmd) clear(parameters []string) error {
 	err := o.deleteEtlConfigmap()
 	if err != nil {
 		return err
@@ -494,7 +614,7 @@ func (o *onekeyCmd) uninstall(parameters []string) error {
 	return nil
 }
 
-func (o *onekeyCmd) install(parameters []string) error {
+func (o *etlCmd) configure(parameters []string) error {
 	listClusters, err := GetNineCLusters(o.ns)
 	if err != nil {
 		return err
@@ -515,7 +635,7 @@ func (o *onekeyCmd) install(parameters []string) error {
 }
 
 // run initializes local config and installs the tools to Kubernetes cluster.
-func (o *onekeyCmd) run() error {
+func (o *etlCmd) run() error {
 	path, _ := rootCmd.Flags().GetString(kubeconfig)
 
 	var parameters []string
@@ -524,13 +644,13 @@ func (o *onekeyCmd) run() error {
 	}
 
 	switch o.subCommand {
-	case "install":
-		err := o.install(parameters)
+	case "configure":
+		err := o.configure(parameters)
 		if err != nil {
 			return err
 		}
-	case "uninstall":
-		err := o.uninstall(parameters)
+	case "clear":
+		err := o.clear(parameters)
 		if err != nil {
 			return err
 		}

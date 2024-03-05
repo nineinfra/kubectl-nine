@@ -48,6 +48,7 @@ type toolsCmd struct {
 	nineName            string
 	toolkitArgs         []string // --nodes flag
 	deletePVC           bool
+	force               bool
 	chartPath           string
 	storagepool         string
 	zkSvcName           string
@@ -110,6 +111,7 @@ func newToolsCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	f.StringVar(&c.airflowTag, "airflow-tag", DefaultToolAirflowTag, "airflow image tag")
 	f.StringVarP(&c.storagepool, "storage-pool", "s", DefaultStorageClass, "storage pool for tools")
 	f.BoolVar(&c.deletePVC, "delete-pvc", false, "delete the ninecluster tools pvcs")
+	f.BoolVar(&c.force, "force", false, "force to delete the ninecluster tools")
 	f.StringVarP(&c.chartPath, "chart-path", "p", "", "local path of the charts")
 	f.StringVarP(&c.ns, "namespace", "n", "", "k8s namespace for tools")
 	f.BoolVar(&DEBUG, "debug", false, "print debug information")
@@ -559,14 +561,14 @@ func (t *toolsCmd) uninstall(parameters []string) error {
 			return err
 		}
 		err = t.dropToolDatabase(v)
-		if err != nil {
+		if err != nil && !t.force {
 			fmt.Printf("Error: %v \n", err)
 			return err
 		}
 	}
 
 	err = t.dropDatabase(DefaultNineInfraDBName, DefaultNineInfraDBUser)
-	if err != nil {
+	if err != nil && !t.force {
 		fmt.Printf("Error: %v \n", err)
 		return err
 	}
