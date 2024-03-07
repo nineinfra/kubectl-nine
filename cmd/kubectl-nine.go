@@ -53,5 +53,7 @@ func New(_ genericiooptions.IOStreams) *cobra.Command {
 	rootCmd.AddCommand(newStorageCmd(rootCmd.OutOrStdout(), rootCmd.ErrOrStderr()))
 	rootCmd.AddCommand(newToolsCmd(rootCmd.OutOrStdout(), rootCmd.ErrOrStderr()))
 	rootCmd.AddCommand(newOnekeyCmd(rootCmd.OutOrStdout(), rootCmd.ErrOrStderr()))
+	rootCmd.AddCommand(newEtlCmd(rootCmd.OutOrStdout(), rootCmd.ErrOrStderr()))
+	rootCmd.AddCommand(newDagCmd(rootCmd.OutOrStdout(), rootCmd.ErrOrStderr()))
 	return rootCmd
 }

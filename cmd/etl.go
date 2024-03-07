@@ -129,18 +129,18 @@ type XmlConfiguration struct {
 }
 
 type etlCmd struct {
-	out             io.Writer
-	errOut          io.Writer
-	subCommand      string
-	ns              string
-	nineName        string
-	dagsPath        string
+	out        io.Writer
+	errOut     io.Writer
+	subCommand string
+	ns         string
+	nineName   string
+	//dagsPath        string
 	sinkTable       string
 	jdbcQuery       string
 	partitionColumn string
 }
 
-func newetlCmd(out io.Writer, errOut io.Writer) *cobra.Command {
+func newEtlCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	c := &etlCmd{out: out, errOut: errOut}
 
 	cmd := &cobra.Command{
@@ -164,7 +164,7 @@ func newetlCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	f.StringVarP(&c.subCommand, "command", "c", "", fmt.Sprintf("command for tools,%s are supported now", etlSubCommandList))
 	f.StringVar(&c.jdbcQuery, "jdbc-query", "", "jdbc query for the etl")
 	f.StringVar(&c.partitionColumn, "partition-column", "", "the column name for parallelism's partition")
-	f.StringVar(&c.dagsPath, "dags-path", "", "local path of the airflow dags")
+	//f.StringVar(&c.dagsPath, "dags-path", "", "local path of the airflow dags")
 	f.StringVar(&c.sinkTable, "sink-table", "test", "name of the sink table")
 	f.StringVarP(&c.ns, "namespace", "n", "", "k8s namespace for the NineCluster")
 	f.BoolVar(&DEBUG, "debug", false, "print debug information")
@@ -412,18 +412,6 @@ func (o *etlCmd) getHdfsConf(cluster *nineinfrav1alpha1.NineCluster) (string, st
 	return hdfsCm.Data["core-site.xml"], hdfsCm.Data["hdfs-site.xml"], nil
 }
 
-func (o *etlCmd) uploadFileToAirflow(filename string, cluster *nineinfrav1alpha1.NineCluster) error {
-	podNames, err := GetAirflowPodNames(cluster.Name, "scheduler", cluster.Namespace)
-	if err != nil {
-		return err
-	}
-	_, _, err = runCommand("kubectl", "cp", filename, fmt.Sprintf("%s:%s/%s", podNames[0], DefaultAirflowDagsPath, filename), "-n", cluster.Namespace)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func (o *etlCmd) createEtlConfigmap(cluster *nineinfrav1alpha1.NineCluster) error {
 	storageType, err := GetNineClusterStorageType(o.nineName, o.ns)
 	if err != nil {
@@ -460,14 +448,14 @@ func (o *etlCmd) createEtlConfigmap(cluster *nineinfrav1alpha1.NineCluster) erro
 		for _, prop := range xmlconf.Properties {
 			hdfsSiteMap[prop.Name] = prop.Value
 		}
-		err = GenLocalFile(DefaultHdfsSiteFileName, []byte(hdfsSite))
-		if err != nil {
-			return err
-		}
-		err = o.uploadFileToAirflow(DefaultHdfsSiteFileName, cluster)
-		if err != nil {
-			return err
-		}
+		//err = GenLocalFile(DefaultHdfsSiteFileName, []byte(hdfsSite))
+		//if err != nil {
+		//	return err
+		//}
+		//err = o.uploadFileToAirflow(DefaultHdfsSiteFileName, cluster)
+		//if err != nil {
+		//	return err
+		//}
 		conf := &pg2hdfsConf{
 			Env: map[string]string{
 				// for spark on jdk17
@@ -624,17 +612,16 @@ func (o *etlCmd) configure(parameters []string) error {
 	if err != nil {
 		return err
 	}
-	if o.dagsPath != "" {
-		err = o.uploadFileToAirflow(o.dagsPath, &listClusters.Items[0])
-		if err != nil {
-			return err
-		}
-	}
+	//if o.dagsPath != "" {
+	//	err = o.uploadFileToAirflow(o.dagsPath, &listClusters.Items[0])
+	//	if err != nil {
+	//		return err
+	//	}
+	//}
 
 	return err
 }
 
-// run initializes local config and installs the tools to Kubernetes cluster.
 func (o *etlCmd) run() error {
 	path, _ := rootCmd.Flags().GetString(kubeconfig)
 

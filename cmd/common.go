@@ -40,6 +40,15 @@ var Err2Suggestions = map[string]string{
 	"No matching resources found": "You can create this resource first",
 }
 
+func runCommandWithOSIO(command string, args ...string) error {
+	cmd := exec.Command(command, args...)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	return cmd.Run()
+}
+
 func runCommand(command string, args ...string) (string, string, error) {
 	cmd := exec.Command(command, args...)
 

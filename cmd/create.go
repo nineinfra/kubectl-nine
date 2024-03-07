@@ -87,7 +87,6 @@ type ClusterOptions struct {
 	OlapStoragePool      string
 	OlapExecutors        int32
 	EnableKyuubiHA       bool
-	EnablePostgresqlCDC  bool
 	MainStorage          string
 	MetastoreStoragePool string
 	Olap                 string
@@ -164,7 +163,6 @@ func newClusterCreateCmd(out io.Writer, errOut io.Writer) *cobra.Command {
 	f.Int32VarP(&c.clusterOpts.OlapExecutors, "olap-executors", "r", 3, "num of the olap executors")
 	f.StringVarP(&c.clusterOpts.MetastoreStoragePool, "metastore-storage-pool", "m", "", "storage pool for metastore")
 	f.BoolVar(&c.clusterOpts.EnableKyuubiHA, "enable-kyuubi-ha", false, "enable kyuubi with high availability")
-	f.BoolVar(&c.clusterOpts.EnablePostgresqlCDC, "enable-postgresql-cdc", false, "enable postgresql with cdc")
 	f.BoolVar(&DEBUG, "debug", false, "print debug information")
 	f.StringVarP(&c.clusterOpts.NS, "namespace", "n", "", "k8s namespace for this ninecluster")
 	return cmd
@@ -220,9 +218,6 @@ func (c *createCmd) run(_ []string) error {
 	}
 	if c.clusterOpts.EnableKyuubiHA {
 		features[FeaturesKyuubiHAKey] = strconv.FormatBool(c.clusterOpts.EnableKyuubiHA)
-	}
-	if c.clusterOpts.EnablePostgresqlCDC {
-		features[FeaturesPostgresqlCDCKey] = strconv.FormatBool(c.clusterOpts.EnablePostgresqlCDC)
 	}
 
 	features[FeaturesStorageKey] = c.clusterOpts.MainStorage

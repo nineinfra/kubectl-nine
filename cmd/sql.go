@@ -87,6 +87,26 @@ func (s *sqlCmd) validate(args []string) error {
 	return ValidateClusterArgs("sql", args)
 }
 
+func (s *sqlCmd) interactiveSQLByKubectl() error {
+	podName, err := GetThriftPodName(s.sqlOpts.Name, s.sqlOpts.NS)
+	if err != nil {
+		return err
+	}
+	thriftIP, thriftPort := GetThriftIpAndPort(s.sqlOpts.Name, s.sqlOpts.NS)
+	if thriftIP == "" || thriftPort == 0 {
+		return errors.New("invalid Thrift Access Info")
+	}
+	err = runCommandWithOSIO("kubectl", "exec", "-it", podName[0], "-n", s.sqlOpts.NS, "--", "/opt/kyuubi/bin/beeline",
+		"-u", fmt.Sprintf("jdbc:hive2://%s:%d", thriftIP, thriftPort),
+		"-n", s.sqlOpts.UserName,
+		"-p", s.sqlOpts.Password,
+		"--silent", fmt.Sprintf("%v", s.sqlOpts.Silent))
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (s *sqlCmd) interactiveSQL() error {
 	podName, err := GetThriftPodName(s.sqlOpts.Name, s.sqlOpts.NS)
 	if err != nil {
@@ -168,5 +188,6 @@ func (s *sqlCmd) run(_ []string) error {
 		return s.directSQL()
 	} else {
 		return s.interactiveSQL()
+		//return s.interactiveSQLByKubectl()
 	}
 }
