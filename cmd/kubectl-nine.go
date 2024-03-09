@@ -15,7 +15,7 @@ const (
 The NineInfra is a cloudnative data platform.
 You can reference to https://github.com/nineinfra/nineinfra`
 	kubeconfig  = "kubeconfig"
-	nineVersion = "v0.7.0"
+	nineVersion = "v0.8.0"
 )
 
 var (
