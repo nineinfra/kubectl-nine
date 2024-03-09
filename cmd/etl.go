@@ -78,6 +78,7 @@ type stHdfsSink struct {
 	Kerberos_keytab_path             string   `yaml:"kerberos_keytab_path"`
 	Max_rows_in_memory               int      `yaml:"max_rows_in_memory"`
 	Sheet_name                       string   `yaml:"sheet_name"`
+	Remote_user                      string   `yaml:"remote_user"`
 }
 
 type stDorisSink struct {
@@ -487,6 +488,7 @@ func (o *etlCmd) createEtlConfigmap(cluster *nineinfrav1alpha1.NineCluster) erro
 					Batch_size:           10000000,
 					Custom_filename:      true,
 					File_name_expression: "${now}",
+					Remote_user:          DefaultHdfsAccessUserName,
 				},
 			},
 		}
@@ -494,7 +496,6 @@ func (o *etlCmd) createEtlConfigmap(cluster *nineinfrav1alpha1.NineCluster) erro
 		if err != nil {
 			return err
 		}
-		fmt.Println(conf2String)
 		err = o.createConfigmap(cluster, "pg2hdfs", conf2String)
 		if err != nil {
 			return err
@@ -541,7 +542,6 @@ func (o *etlCmd) createEtlConfigmap(cluster *nineinfrav1alpha1.NineCluster) erro
 				if err != nil {
 					return err
 				}
-				fmt.Println(conf2String)
 				err = o.createConfigmap(cluster, "pg2doris", conf2String)
 				if err != nil {
 					return err

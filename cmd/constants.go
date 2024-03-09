@@ -74,6 +74,10 @@ const (
 	DefaultDorisFENameSuffix = "-doris-fe"
 )
 
+const (
+	DefaultHdfsAccessUserName = DefaultSqlAccessUserName
+)
+
 var (
 	DefaultZookeeperReplicas = 3
 )
